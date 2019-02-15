@@ -1,0 +1,20 @@
+extruding 4 edges
+Vertex: 1 of valency: 3
+Vertex: 2 of valency: 3
+Vertex: 3 of valency: 3
+Vertex: 0 of valency: 3
+
+
+Vertices after slit
+Vertex: 0 : 0.5 -0.5 -0.5
+Vertex: 1 : -0.5 -0.5 -0.5
+Vertex: 2 : -0.5 0.5 -0.5
+Vertex: 3 : 0.5 0.5 -0.5
+Vertex: 4 : 0.5 0.5 0.5
+Vertex: 5 : 0.5 -0.5 0.5
+Vertex: 6 : -0.5 -0.5 0.5
+Vertex: 7 : -0.5 0.5 0.5
+Vertex: 8 : -1.45682e+144 -1.45682e+144 -1.45682e+144
+Vertex: 9 : -0.5 0.5 -0.5
+Vertex: 10 : 0.5 0.5 -0.5
+Vertex: 11 : 0.5 -0.5 -0.5

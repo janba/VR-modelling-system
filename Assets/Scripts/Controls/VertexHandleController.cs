@@ -1,0 +1,416 @@
+﻿using UnityEngine;
+using System.Collections.Generic;
+using Assets.GEL;
+
+namespace Controls
+{
+    public class VertexHandleController : IInteractableObject
+    {
+        public enum RefinementMode
+        {
+            LOOP,
+            EDGE,
+            NO
+        }
+
+        public bool IsDragged = false;
+        public int AssociatedVertexID;
+
+        public ExtrudableMesh Extrudable;
+
+        private Vector3 initialControllerOffset;
+
+        private HoverHighlight _hoverHighlight;
+
+        private Mesh mesh;
+        private Vector3 initialPosition;
+        private float minDeltaY;
+        private Quaternion initialRotation;
+
+        private Quaternion initialControllerRotation;
+
+        private static List<VertexHandleController> activeControllers = new List<VertexHandleController>();
+        private int updateInFrame;
+        private Transform interactingControllerCollider;
+
+        private InteractionMode mode = InteractionMode.SINGLE;
+
+        private RefinementMode refinementMode = RefinementMode.NO;
+
+        public bool refinementActive = true;
+
+        private Manifold splitManifold;
+        private RefinementMode lastRefinementMode = RefinementMode.NO;
+        private Dictionary<int, int> adjacentVertices;
+
+        public GameObject edgebarPrefab;
+
+        private GameObject edgebar;
+
+        void Awake()
+        {
+            _hoverHighlight = GetComponent<HoverHighlight>();
+            var meshFilter = GetComponent<MeshFilter>();
+            mesh = meshFilter.sharedMesh;
+        }
+
+        // Update is called once per frame
+        void Update()
+        {
+            Vector3 left_ctrl_pt = GameObject.Find("LeftHandAnchor").transform.position;
+            Vector3 right_ctrl_pt = GameObject.Find("RightHandAnchor").transform.position;
+            float dist_left_ctrl = (10.0f * (left_ctrl_pt - transform.position)).sqrMagnitude;
+            float dist_right_ctrl = (10.0f * (right_ctrl_pt - transform.position)).sqrMagnitude;
+            float sz = 0.1f + 0.9f / (Mathf.Min(dist_left_ctrl, dist_right_ctrl) + 1.0f);
+            transform.localScale = new Vector3(sz, sz, sz);
+
+            if (updateInFrame == Time.frameCount) return;
+            if (activeControllers.Count == 1 && activeControllers[0] == this)
+            {
+                if (IsDragged)
+                {
+                    Vector3 controllerPosInLocalSpace = transform.parent.worldToLocalMatrix.MultiplyPoint(_controllerCollider.transform.position);
+                    Vector3 targetPos = controllerPosInLocalSpace - initialControllerOffset;
+                    targetPos.y = Mathf.Max(minDeltaY, targetPos.y);
+                    transform.localPosition = targetPos;
+                    Extrudable.MoveVertexTo(
+                        AssociatedVertexID,
+                        transform.localPosition);
+                    ControlsManager.Instance.Extrudable.rebuild = true;
+                    //ControlsManager.Instance.UpdateControls();
+                }
+            }
+            else
+            {
+                if (activeControllers.Count == 2 && refinementActive)
+                {
+                    if (mode == InteractionMode.DUAL)
+                    {
+                        Dictionary<string, float> angleDict = new Dictionary<string, float>();
+                        foreach (VertexHandleController v in activeControllers)
+                        {
+                            float angle = Mathf.Abs(v.interactingControllerCollider.transform.rotation.eulerAngles.z - v.initialControllerRotation.eulerAngles.z) % 180f;
+
+                            if (v.interactingControllerCollider.gameObject.name.StartsWith("right"))
+                            {
+                                angleDict["right"] = angle;
+                            }
+                            else if (v.interactingControllerCollider.gameObject.name.StartsWith("left"))
+                            {
+                                angleDict["left"] = angle;
+                            }
+                        }
+
+                        refinementMode = DetermineRefinement(angleDict);
+                        //Show what refinement would do
+                        if (refinementMode != lastRefinementMode)
+                        {
+                            if (refinementMode == RefinementMode.LOOP)
+                                ShowRefinement(activeControllers[0].AssociatedVertexID, activeControllers[1].AssociatedVertexID);
+
+                            else if (refinementMode == RefinementMode.NO)
+                            {
+                                GameObject refinePreview = GameObject.FindGameObjectWithTag("RefinePreview");
+                                refinePreview.GetComponent<MeshRenderer>().enabled = false;
+                            }
+                        }
+
+
+                        lastRefinementMode = refinementMode;
+
+                    }
+                }
+            }
+        }
+
+        public override void Interact()
+        {
+            interactingControllerCollider = _controllerCollider.transform;
+            activeControllers.Add(this);
+            if (activeControllers.Count == 1)
+            {
+                ChangeInteraction(InteractionMode.SINGLE);
+                IsDragged = true;
+                initialPosition = transform.localPosition;
+                initialRotation = transform.localRotation;
+                Vector3 controllerPosInLocalSpace = transform.parent.worldToLocalMatrix.MultiplyPoint(_controllerCollider.transform.position);
+                initialControllerOffset = controllerPosInLocalSpace - transform.localPosition;
+                ControlsManager.Instance.Extrudable.rebuild = true;
+                ControlsManager.FireUndoStartEvent(mesh, this, initialPosition, initialRotation);
+                if (ControlsManager.Instance.turntable)
+                    minDeltaY = transform.parent.InverseTransformPoint(Vector3.one * ControlsManager.Instance.turntable.GetMaxYWithBounds()).y;
+                else
+                    minDeltaY = -100f;
+
+                // Display two handed options
+                adjacentVertices = AdjacentVertices();
+                ControlsManager.Instance.HideNonAdjacentVertices(adjacentVertices);
+            }
+            else if (activeControllers.Count == 2 && refinementActive)
+            {
+                activeControllers[0].ChangeInteraction(InteractionMode.DUAL);
+                ChangeInteraction(InteractionMode.DUAL);
+                initialRotation = transform.localRotation;
+                AddEdgeBarSignifier();
+            }
+
+        }
+
+        public override void StartHighlight()
+        {
+            _hoverHighlight.StartHover();
+        }
+
+        public override void EndHighlight()
+        {
+            _hoverHighlight.EndHover();
+        }
+
+        public override void ChangeInteraction(InteractionMode mode)
+        {
+            this.mode = mode;
+            updateInFrame = Time.frameCount;
+        }
+
+        public override void StopInteraction()
+        {
+            Debug.Log("Stopping interaction... vertexHandleController");
+            updateInFrame = Time.frameCount;
+            //if (activeControllers.Count == 1)
+            //{
+            //    activeControllers[0].ChangeInteraction(InteractionMode.SINGLE);
+            //}
+            //else
+            if (mode == InteractionMode.SINGLE)
+            {
+                activeControllers.Remove(this);
+                if (IsDragged)
+                {
+                    IsDragged = false;
+                    int collapsed = Extrudable.CollapseShortEdges(0.03f);
+                    if (collapsed > 0)
+                    {
+                        ControlsManager.Instance.DestroyInvalidObjects();
+                    }
+                    ControlsManager.Instance.Extrudable.rebuild = true;
+                    //ControlsManager.Instance.UpdateControls();
+                    ControlsManager.FireUndoEndEvent(mesh, this, initialPosition, initialRotation);
+                }
+            }
+            else
+            {
+                if (mode == InteractionMode.DUAL && refinementActive)
+                {
+                    if(activeControllers.Count == 2)
+                    {
+                        // Do the refinement and clear the splitManifold
+                        //ShowRefinement(activeControllers[0].AssociatedVertexID, activeControllers[1].AssociatedVertexID);
+                        activeControllers.Remove(this);
+                        activeControllers[0].ChangeInteraction(InteractionMode.SINGLE);
+                        activeControllers[0].EndHighlight();
+                        activeControllers[0].StopInteraction();
+                    }
+
+                    if (refinementMode == RefinementMode.LOOP)
+                    {
+                        // This or TriangulateAndDraw + ControlsManager.Instance.the function that clears and updates
+                        //Extrudable._manifold = splitManifold;
+                        //Extrudable.UpdateMesh();
+                        Extrudable.ChangeManifold(splitManifold);
+                        Debug.Log("pushing an undo for edge loop...");
+                        ControlsManager.FireUndoEndEvent(mesh, this, initialPosition, initialRotation); // possible quick fix
+                    }
+
+                    GameObject refinePreview = GameObject.FindGameObjectWithTag("RefinePreview");
+                    refinePreview.GetComponent<MeshRenderer>().enabled = false;
+
+                    ChangeInteraction(InteractionMode.SINGLE);
+                    refinementMode = RefinementMode.NO;
+                }
+                
+            }
+            ControlsManager.Instance.UpdateControls();
+            if (edgebar)
+                Destroy(edgebar);
+
+            Debug.Log("Stopped interaction... vertexHandleController");
+        }
+
+        private RefinementMode DetermineRefinement(Dictionary<string, float> angleDict)
+        {
+            RefinementMode refmode = RefinementMode.NO;
+
+            //if ((angleDict["left"] > 20f && angleDict["left"] < 90f) && (angleDict["right"] > 20f && angleDict["right"] < 90f))
+            if ((angleDict["left"] > 30f) && (angleDict["right"] > 30f))
+            {
+                refmode = RefinementMode.LOOP;
+            }
+
+            return refmode;
+        }
+
+        private void ShowRefinement(int vertexid1, int vertexid2)
+        {
+            if (activeControllers.Count == 2)
+            {
+                splitManifold = Extrudable._manifold.Copy();
+                Debug.Log(activeControllers[1].AssociatedVertexID);
+                int edge = adjacentVertices[activeControllers[1].AssociatedVertexID];
+
+                int edge2 = splitManifold.GetNextHalfEdge(edge);
+
+                edge2 = splitManifold.GetNextHalfEdge(edge2);
+
+                splitManifold.RefineFaceloop(edge, edge2);
+
+                //Extrudable._manifold.RefineFaceloop(edge, edge2);
+                splitManifold.StitchMesh(1e-10);
+                var newMesh = new Mesh();
+                newMesh.vertices = mesh.vertices;
+                newMesh.normals = mesh.normals;
+                newMesh.subMeshCount = 2;
+                newMesh.SetIndices(mesh.triangles, MeshTopology.Triangles, 0);
+                newMesh.SetIndices(new int[0], MeshTopology.Lines, 1);
+                mesh = newMesh;
+                mesh.UploadMeshData(false);
+                GameObject refinePreview = GameObject.FindGameObjectWithTag("RefinePreview");
+                refinePreview.GetComponent<MeshFilter>().mesh = CreatePreviewMesh();
+                refinePreview.GetComponent<MeshRenderer>().enabled = true;
+
+            }
+        }
+
+        private Dictionary<int, int> AdjacentVertices()
+        {
+            var faceIds = new int[Extrudable._manifold.NumberOfFaces()];
+            var vertexIds = new int[Extrudable._manifold.NumberOfVertices()];
+            var halfedgeIds = new int[Extrudable._manifold.NumberOfHalfEdges()];
+            Extrudable._manifold.GetHMeshIds(vertexIds, halfedgeIds, faceIds);
+            List<int> halfedgeToVertex = new List<int>();
+            for (int i = 0; i < halfedgeIds.Length; i++)
+            {
+                int h = halfedgeIds[i];
+                if (Extrudable._manifold.IsHalfedgeInUse(h))
+                {
+                    int v = Extrudable._manifold.GetVertexId(h);
+                    if (v == AssociatedVertexID)
+                    {
+                        halfedgeToVertex.Add(h);
+                    }
+                }
+            }
+
+            Dictionary<int, int> adjacentVertexIds = new Dictionary<int, int>();
+
+            foreach (int h in halfedgeToVertex)
+            {
+                int nextHalfEdge = Extrudable._manifold.GetNextHalfEdge(h);
+                if (!adjacentVertexIds.ContainsKey(Extrudable._manifold.GetVertexId(h)))
+                    adjacentVertexIds.Add(Extrudable._manifold.GetVertexId(h), nextHalfEdge);
+                int lastHalfedge = nextHalfEdge;
+                while (true)
+                {
+                    nextHalfEdge = Extrudable._manifold.GetNextHalfEdge(lastHalfedge);
+                    if (nextHalfEdge == h)
+                    {
+                        if (!adjacentVertexIds.ContainsKey(Extrudable._manifold.GetVertexId(lastHalfedge)))
+                            adjacentVertexIds.Add(Extrudable._manifold.GetVertexId(lastHalfedge), Extrudable._manifold.GetNextHalfEdge(lastHalfedge));
+                        break;
+                    }
+                    lastHalfedge = nextHalfEdge;
+                }
+            }
+
+            return adjacentVertexIds;
+
+        }
+
+        private Mesh CreatePreviewMesh()
+        {
+            var pointsAndQuads = splitManifold.ToIdfs();
+
+            var points = pointsAndQuads.Key;
+
+            List<int> edges = new List<int>();
+            var vertices = new Vector3[splitManifold.NumberOfAllocatedVertices()];
+
+            for (var i = 0; i < vertices.Length; i++)
+            {
+                vertices[i] = new Vector3((float)points[3 * i], (float)points[3 * i + 1], (float)points[3 * i + 2]);
+            }
+
+            int[] polygons = pointsAndQuads.Value;
+            List<int> polygonsFinal = new List<int>();
+            List<Vector3> verticesFinal = new List<Vector3>();
+            List<Vector3> normalsFinal = new List<Vector3>();
+
+            for (var i = 0; i < polygons.Length;)
+            {
+                int polyCount = polygons[i];
+                i++;
+
+                // add final vertices
+                int vertexBase = verticesFinal.Count;
+                for (int j = 0; j < polyCount; j++)
+                {
+                    verticesFinal.Add(vertices[polygons[i + j]]);
+                }
+                Vector3 normal = Vector3.zero;
+
+                // triangulate polygon
+                for (int j = 1; j + 1 < polyCount; j++)
+                {
+                    polygonsFinal.Add(vertexBase);
+                    polygonsFinal.Add(vertexBase + j);
+                    polygonsFinal.Add(vertexBase + j + 1);
+
+                    normal += -Vector3.Cross(verticesFinal[vertexBase] - verticesFinal[vertexBase + j],
+                        verticesFinal[vertexBase + j + 1] - verticesFinal[vertexBase + j]).normalized;
+                }
+                normal.Normalize();
+
+                for (int j = 0; j < polyCount; j++)
+                {
+                    normalsFinal.Add(normal);
+                    edges.Add(vertexBase + j);
+                    edges.Add(vertexBase + (j + 1) % polyCount);
+                }
+
+                i += polyCount;
+            }
+
+            Mesh splitMesh = new Mesh();
+            splitMesh.name = "extruded";
+            splitMesh.SetIndices(new int[0], MeshTopology.Triangles, 0);
+            splitMesh.SetIndices(new int[0], MeshTopology.Lines, 1);
+            splitMesh.vertices = verticesFinal.ToArray();
+            splitMesh.normals = normalsFinal.ToArray();
+            splitMesh.subMeshCount = 2;
+            splitMesh.SetIndices(polygonsFinal.ToArray(), MeshTopology.Triangles, 0);
+            splitMesh.SetIndices(edges.ToArray(), MeshTopology.Lines, 1);
+            splitMesh.UploadMeshData(false); 
+
+            return splitMesh;
+        }
+
+        private void AddEdgeBarSignifier()
+        {
+            if (activeControllers.Count == 2)
+            {
+                edgebar = Instantiate(edgebarPrefab);
+                //edgebar.transform.parent = activeControllers[0].transform;
+                edgebar.transform.position = activeControllers[0].transform.position + (activeControllers[1].transform.position - activeControllers[0].transform.position) / 2.0f;
+                float length = (Extrudable._manifold.VertexPosition(activeControllers[1].AssociatedVertexID) - Extrudable._manifold.VertexPosition(activeControllers[0].AssociatedVertexID)).magnitude;
+                Vector3 tempScale = edgebar.transform.localScale;
+                tempScale.y = 1.55f / 0.2f * length;
+                edgebar.transform.localScale = tempScale;
+                //edgebar.transform.rotation = Quaternion.LookRotation((activeControllers[1].transform.position - activeControllers[0].transform.position)).normalized);
+                //set rotation
+                Vector3 v = activeControllers[1].transform.position - activeControllers[0].transform.position;
+                Quaternion q = Quaternion.LookRotation(v);
+
+                edgebar.transform.rotation = q * edgebar.transform.rotation;
+            }
+        }
+    }
+}
