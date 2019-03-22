@@ -88,16 +88,12 @@ namespace Controls
 
         public static void FireUndoStartEvent(Mesh m, IInteractableObject io, Vector3 initialPosition, Quaternion initialRotation)
         {
-            Debug.Log("FireUndoStartEvent starting");
             Instance.undoStartEventHandlers(m, io, initialPosition, initialRotation);
-            Debug.Log("FireUndoStartEvent end");
         }
 
         public static void FireUndoEndEvent(Mesh m, IInteractableObject io, Vector3 initialPosition, Quaternion initialRotation)
         {
-            Debug.Log("FireUndoEndEvent starting");
             Instance.undoEndEventHandlers(m, io, initialPosition, initialRotation);
-            Debug.Log("FireUndoEndEvent end");
         }
 
         void Awake()

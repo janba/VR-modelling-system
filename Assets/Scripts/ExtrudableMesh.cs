@@ -14,7 +14,7 @@ public class ExtrudableMesh : MonoBehaviour
 {
     public Manifold _manifold;
 
-    private Mesh mesh;
+    public Mesh mesh;
 
     public double initialSize = 0.1;
 
@@ -218,12 +218,22 @@ public class ExtrudableMesh : MonoBehaviour
         manifold.AddFace(4, top);
         manifold.AddFace(4, back);
 
+        /* //this is okay
+        manifold.RemoveFace(5);
+        manifold.AddFace(4, back);
+        manifold.RemoveFace(6);
+        manifold.AddFace(4, back);
+        manifold.RemoveFace(7);
+        manifold.AddFace(4, back);
+        manifold.RemoveFace(8);
+        manifold.AddFace(4, back);
+        */
         manifold.StitchMesh(1e-10);
 
         return manifold;
     }
 
-    void TriangulateAndDrawManifold()
+   public void TriangulateAndDrawManifold()
     {
 
         var pointsAndQuads = _manifold.ToIdfs();
@@ -287,5 +297,221 @@ public class ExtrudableMesh : MonoBehaviour
         mesh.SetIndices(polygonsFinal.ToArray(), MeshTopology.Triangles, 0);
         mesh.SetIndices(edges.ToArray(), MeshTopology.Lines, 1);
         mesh.UploadMeshData(false);
+    }
+
+    public bool isValidMesh()
+    {
+        // prototype 1, compare all triangles to all triangles
+        var triangles = mesh.GetTriangles(0);
+        var vertices = mesh.vertices; // property not field
+
+        for (var i = 0; i < triangles.Length - 3; i = i + 3)
+        {
+            //Debug.Log("log 2: " + mesh.vertexCount);
+            for (var j = i; j < triangles.Length; j = j + 3)
+            {
+                //Debug.Log("log 3: " + mesh.vertexCount);
+
+                if (triangle_triangleIntersection(vertices[triangles[i]], vertices[triangles[i + 1]], vertices[triangles[i + 2]], vertices[triangles[j]], vertices[triangles[j + 1]], vertices[triangles[j + 2]]))
+                {
+                    
+                    Debug.Log("log 4: " + mesh.vertexCount);
+
+                    Debug.Log("found a triangle intersection");
+                    Debug.Log("Triangle 1:");
+                    Debug.Log("vertex 1: " + mesh.vertices[mesh.triangles[i]].ToString("F8"));
+                    Debug.Log("vertex 2: " + mesh.vertices[mesh.triangles[i + 1]].ToString("F8"));
+                    Debug.Log("vertex 3: " + mesh.vertices[mesh.triangles[i + 2]].ToString("F8"));
+                    Debug.Log("Triangle 2:");
+                    Debug.Log("vertex 1: " + mesh.vertices[mesh.triangles[j]].ToString("F8"));
+                    Debug.Log("vertex 2: " + mesh.vertices[mesh.triangles[j + 1]].ToString("F8"));
+                    Debug.Log("vertex 3: " + mesh.vertices[mesh.triangles[j + 2]].ToString("F8"));
+                    
+                    return false;
+                }
+            }
+        }
+        return true;
+
+    }
+
+    public bool triangle_triangleIntersection(Vector3 v1, Vector3 v2, Vector3 v3, Vector3 v4, Vector3 v5, Vector3 v6)
+    {
+
+        double epsilon = 0.001;
+        var N1 = Vector3.Cross((v2 - v1), (v3 - v1));
+        float d1 = Vector3.Dot(-N1, v1);
+        float sd1, sd2, sd3;
+
+        sd1 = Vector3.Dot(N1, v4) + d1;
+        sd2 = Vector3.Dot(N1, v5) + d1;
+        sd3 = Vector3.Dot(N1, v6) + d1;
+
+        if (Math.Abs(sd1) < epsilon)
+            sd1 = 0.0f;
+        if (Math.Abs(sd2) < epsilon)
+            sd2 = 0.0f;
+        if (Math.Abs(sd3) < epsilon)
+            sd3 = 0.0f;
+
+        if (sd1 * sd2 >= 0.0f && sd1 * sd3 >= 0.0f && sd2 * sd3 >= 0.0f)
+        {
+            return false;
+        }
+
+        var N2 = Vector3.Cross((v5 - v4), (v6 - v4));
+        float d2 = Vector3.Dot(-N2, v4);
+        float sd4, sd5, sd6;
+
+        sd4 = Vector3.Dot(N2, v1) + d2;
+        sd5 = Vector3.Dot(N2, v2) + d2;
+        sd6 = Vector3.Dot(N2, v3) + d2;
+
+        if (Math.Abs(sd4) < epsilon)
+            sd4 = 0.0f;
+        if (Math.Abs(sd5) < epsilon)
+            sd5 = 0.0f;
+        if (Math.Abs(sd6) < epsilon)
+            sd6 = 0.0f;
+
+        if (sd4 * sd5 > 0.0f && sd4 * sd6 > 0.0f && sd5 * sd6 >= 0.0f)
+        {
+            return false;
+        }
+
+        short index;
+        float max, bb, cc;
+        float vp1, vp2, vp3, up1, up2, up3;
+
+        var D = Vector3.Cross(N1, N2);
+        index = 0;
+        max = Math.Abs(D.x);
+        bb = Math.Abs(D.y);
+        if (bb > max)
+        {
+            max = bb;
+            index = 1;
+        }
+        cc = Math.Abs(D.z);
+        if (cc > max)
+        {
+            max = cc;
+            index = 2;
+        }
+
+        vp1 = v1[index];
+        vp2 = v2[index];
+        vp3 = v3[index];
+
+        up1 = v4[index];
+        up2 = v5[index];
+        up3 = v6[index];
+
+        float t1;
+        float t2;
+        float u1;
+        float u2;
+
+        // first triangle 
+        if (sd4 * sd5 > 0.0f)
+        {
+            //Console.WriteLine("t - 1");
+            t1 = vp1 + (vp3 - vp1) * (sd4 / (sd4 - sd6));
+            t2 = vp2 + (vp3 - vp2) * (sd5 / (sd5 - sd6));
+
+        }
+        else if (sd4 * sd6 > 0.0f)
+        {
+            //Console.WriteLine("t - 2");
+            t1 = vp1 + (vp2 - vp1) * (sd4 / (sd4 - sd5));
+            t2 = vp3 + (vp2 - vp3) * (sd6 / (sd6 - sd5));
+
+        }
+        else if (sd5 * sd6 > 0.0f || sd4 != 0.0f)
+        {
+            //Console.WriteLine("t - 3");
+            t1 = vp2 + (vp1 - vp2) * (sd5 / (sd5 - sd4));
+            t2 = vp3 + (vp1 - vp3) * (sd6 / (sd6 - sd4));
+
+        }
+        else if (sd5 != 0.0f)
+        {
+            //Console.WriteLine("t - 4");
+            t1 = vp1 + (vp2 - vp1) * (sd4 / (sd4 - sd5));
+            t2 = vp3 + (vp2 - vp3) * (sd6 / (sd6 - sd5));
+
+        }
+        else if (sd6 != 0.0f)
+        {
+            //Console.WriteLine("t - 5");
+            t1 = vp1 + (vp3 - vp1) * (sd4 / (sd4 - sd6));
+            t2 = vp2 + (vp3 - vp2) * (sd5 / (sd5 - sd6));
+
+        }
+        else
+        {
+            //Console.WriteLine("t coplanar triangle");
+            return false; // coplanar triangle
+        }
+
+        //second triangle
+        if (sd1 * sd2 > 0.0f)
+        {
+            //Console.WriteLine("u - 1");
+            u1 = up1 + (up3 - up1) * (sd1 / (sd1 - sd3));
+            u2 = up2 + (up3 - up2) * (sd2 / (sd2 - sd3));
+
+        }
+        else if (sd1 * sd3 > 0.0f)
+        {
+            //Console.WriteLine("u - 2");
+            u1 = up1 + (up2 - up1) * (sd1 / (sd1 - sd2));
+            u2 = up3 + (up2 - up3) * (sd3 / (sd3 - sd2));
+
+        }
+        else if (sd2 * sd3 > 0.0f || sd1 != 0.0f)
+        {
+            //Console.WriteLine("u - 3");
+            u1 = up2 + (up1 - up2) * (sd2 / (sd2 - sd1));
+            u2 = up3 + (up1 - up3) * (sd3 / (sd3 - sd1));
+
+        }
+        else if (sd2 != 0.0f)
+        {
+            //Console.WriteLine("u - 4");
+            u1 = up1 + (up2 - up1) * (sd1 / (sd1 - sd2));
+            u2 = up3 + (up2 - up3) * (sd3 / (sd3 - sd2));
+
+        }
+        else if (sd3 != 0.0f)
+        {
+            //Console.WriteLine("u - 5");
+            u1 = up1 + (up3 - up1) * (sd1 / (sd1 - sd3));
+            u2 = up2 + (up3 - up2) * (sd2 / (sd2 - sd3));
+
+        }
+        else
+        {
+            //Console.WriteLine("u coplanar triangle");
+            return false; // coplanar triangle
+        }
+
+        if (t1 > t2)
+        {
+            if (t1 <= u1 && t1 <= u2)
+                return false;
+            if (t2 >= u1 && t2 >= u2)
+                return false;
+            return true;
+        }
+        if (t2 > t1)
+        {
+            if (t2 <= u1 && t2 <= u2)
+                return false;
+            if (t1 >= u1 && t1 >= u2)
+                return false;
+            return true;
+        }
+        return false;
     }
 }

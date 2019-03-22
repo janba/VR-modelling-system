@@ -1,6 +1,7 @@
 ﻿using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
+using Assets.GEL;
 using UnityEngine;
 
 namespace Controls
@@ -42,6 +43,9 @@ namespace Controls
         private HoverHighlight _hoverHighlight;
 
         private Mesh mesh;
+
+        private Manifold initialManifold;
+
         private Vector3 initialPosition;
         private Quaternion initialRotation;
 
@@ -216,6 +220,9 @@ namespace Controls
 
             initialPosition = transform.localPosition;
             initialRotation = transform.localRotation;
+
+            initialManifold = Extrudable._manifold.Copy();
+
             selectedFaceList = GetAdjacentLockedFaces(AssociatedFaceID, new List<AdjacentLockedFaces>());
 
 
@@ -252,13 +259,22 @@ namespace Controls
                     extrudingFaces.ToArray(),
                     transform.localPosition, translateSnap);
                 extrudingFaces = new List<int>(); // create new list (may be referenced by other hand)
-                int collapsed = Extrudable.CollapseShortEdges(0.01);
-                if (collapsed > 0)
+
+                if (Extrudable.isValidMesh())
                 {
-                    ControlsManager.Instance.DestroyInvalidObjects();
+
+                    int collapsed = Extrudable.CollapseShortEdges(0.01);
+                    if (collapsed > 0)
+                    {
+                        ControlsManager.Instance.DestroyInvalidObjects();
+                    }
+                    ControlsManager.Instance.Extrudable.rebuild = true;
+                    ControlsManager.FireUndoEndEvent(mesh, this, initialPosition, initialRotation);
                 }
-                ControlsManager.Instance.Extrudable.rebuild = true;
-                ControlsManager.FireUndoEndEvent(mesh, this, initialPosition, initialRotation);
+                else
+                {
+                    Extrudable.ChangeManifold(initialManifold);
+                }
             }
         }
 

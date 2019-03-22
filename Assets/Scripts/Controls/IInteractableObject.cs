@@ -16,20 +16,15 @@ namespace Controls
 
         public void StartInteraction(SphereCollider controllerCollider, MonoBehaviour controller)
         {
-            Debug.Log("Start interacting...");
             _controllerCollider = controllerCollider;
             _controller = controller;
             Interact();
-            Debug.Log("Start interacting end");
         }
 
         public void EndInteraction()
         {
-            Debug.Log("End interacting...");
             StopInteraction();
             _controllerCollider = null;
-            Debug.Log("Ended interaction");
-
         }
 
         public abstract void Interact();

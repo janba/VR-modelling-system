@@ -101,7 +101,6 @@ public class UndoManager : MonoBehaviour
 	public void OnUndoStartAction(Mesh handleMesh, IInteractableObject interactableObject, Vector3 initialPosition,
 		Quaternion initialRotation)
 	{
-        Debug.Log("OnUndoStartAction invoked");
 		while (position < undoActions.Count - 1)
 		{
 			undoActions.RemoveAt(undoActions.Count - 1); // todo replace with if + RemoveRange 
@@ -136,22 +135,23 @@ public class UndoManager : MonoBehaviour
         //undoActions.Add(data); // outcomment part of test fix
         tempData = data; // possible quick fix
         UpdateVisuals();
-        Debug.Log("OnUndoStartAction done");
     }
 
 	public void OnUndoEndAction(Mesh handleMesh, IInteractableObject interactableObject, Vector3 initialPosition, Quaternion initialRotation)
-	{
-        Debug.Log("OnUndoEndAction starting");
+	{        
+        Transform t = interactableObject != null ? interactableObject.transform : transform;
+		//int index = Mathf.Max(0, undoActions.Count - 1);
+        tempData.positionFinal = t.localPosition;
+        tempData.rotationFinal = t.localRotation;
+        tempData.manifold = _extrudableMesh._manifold.Copy();
+        tempData.manifoldMesh = _extrudableMesh.GetMeshClone();
+        //undoActions[index].positionFinal = t.localPosition;
+        //undoActions[index].rotationFinal = t.localRotation;
+        //undoActions[index].manifold = _extrudableMesh._manifold.Copy();
+        //undoActions[index].manifoldMesh = _extrudableMesh.GetMeshClone();
         undoActions.Add(tempData); // possible fix
         position++; // possible fix
-        Transform t = interactableObject != null ? interactableObject.transform : transform;
-		int index = Mathf.Max(0, undoActions.Count - 1);
-		undoActions[index].positionFinal = t.localPosition;
-		undoActions[index].rotationFinal = t.localRotation;
-		undoActions[index].manifold = _extrudableMesh._manifold.Copy();
-		undoActions[index].manifoldMesh = _extrudableMesh.GetMeshClone();
-		UpdateVisuals();
-        Debug.Log("OnUndoEndAction end");
+        UpdateVisuals();
     }
 
 	public bool MoveForward()
@@ -170,14 +170,11 @@ public class UndoManager : MonoBehaviour
 
 	public bool MoveBackwards()
 	{
-        Debug.Log("Initial position: " + position);
         if (position - 1 < 0)
 		{
-            Debug.Log("hello");
 			return false;
 		}
 		position--;
-        Debug.Log("undoActions size: " + undoActions.Count);
 
         /*
         Debug.Log("new position: " + position);
@@ -196,18 +193,10 @@ public class UndoManager : MonoBehaviour
         Debug.Log("number of halfedges: " + undoActions[position - 1].manifold.NumberOfHalfEdges());
         */
         _extrudableMesh._manifold = undoActions[position].manifold.Copy();
-        Debug.Log("2/6");
-
         _extrudableMesh.rebuild = true;
-        Debug.Log("3/6");
         _controlsManager.DestroyInvalidObjects();
-        Debug.Log("4/6");
         _controlsManager.UpdateControls();
-        Debug.Log("5/6");
-
         UpdateVisuals();
-        Debug.Log("6/6.");
-
         return true;
     }
 

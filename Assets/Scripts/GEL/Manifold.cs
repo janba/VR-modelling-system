@@ -119,6 +119,11 @@ namespace Assets.GEL
             Manifold_add_face(_manifold, noVertices, pos);
         }
 
+        public void RemoveFace(int fid)
+        {
+            Manifold_remove_face(_manifold, fid);
+        }
+
         public static Manifold RandomMesh(int noIter)
         {
             var random = new Manifold();

@@ -57,6 +57,9 @@ namespace Assets.GEL
         protected static extern void Manifold_add_face(IntPtr self, int no_verts, double[] pos);
 
         [DllImport("GELExt")]
+        protected static extern void Manifold_remove_face(IntPtr self, int fid);
+
+        [DllImport("GELExt")]
         protected static extern void randomize_mesh(IntPtr manifold, int max_iter);
 
         [DllImport("GELExt")]

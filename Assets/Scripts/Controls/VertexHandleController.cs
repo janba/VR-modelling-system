@@ -23,6 +23,9 @@ namespace Controls
         private HoverHighlight _hoverHighlight;
 
         private Mesh mesh;
+
+        private Manifold initialManifold;
+
         private Vector3 initialPosition;
         private float minDeltaY;
         private Quaternion initialRotation;
@@ -73,9 +76,11 @@ namespace Controls
                     Vector3 targetPos = controllerPosInLocalSpace - initialControllerOffset;
                     targetPos.y = Mathf.Max(minDeltaY, targetPos.y);
                     transform.localPosition = targetPos;
+
                     Extrudable.MoveVertexTo(
                         AssociatedVertexID,
                         transform.localPosition);
+
                     ControlsManager.Instance.Extrudable.rebuild = true;
                     //ControlsManager.Instance.UpdateControls();
                 }
@@ -127,10 +132,14 @@ namespace Controls
         {
             interactingControllerCollider = _controllerCollider.transform;
             activeControllers.Add(this);
+
+            initialManifold = Extrudable._manifold.Copy();
+
             if (activeControllers.Count == 1)
             {
                 ChangeInteraction(InteractionMode.SINGLE);
                 IsDragged = true;
+
                 initialPosition = transform.localPosition;
                 initialRotation = transform.localRotation;
                 Vector3 controllerPosInLocalSpace = transform.parent.worldToLocalMatrix.MultiplyPoint(_controllerCollider.transform.position);
@@ -174,7 +183,6 @@ namespace Controls
 
         public override void StopInteraction()
         {
-            Debug.Log("Stopping interaction... vertexHandleController");
             updateInFrame = Time.frameCount;
             //if (activeControllers.Count == 1)
             //{
@@ -187,38 +195,54 @@ namespace Controls
                 if (IsDragged)
                 {
                     IsDragged = false;
+
+
+                    if (Extrudable.isValidMesh()) {
                     int collapsed = Extrudable.CollapseShortEdges(0.03f);
-                    if (collapsed > 0)
-                    {
-                        ControlsManager.Instance.DestroyInvalidObjects();
+                        if (collapsed > 0)
+                        {
+                            ControlsManager.Instance.DestroyInvalidObjects();
+                        }
+                        ControlsManager.Instance.Extrudable.rebuild = true;
+                        //ControlsManager.Instance.UpdateControls();
+                        ControlsManager.FireUndoEndEvent(mesh, this, initialPosition, initialRotation);
+
+                        /*
+                        int[] edges = Extrudable._manifold.GetAdjacentFaceIdsAndEdgeCenters(1).edgeId;
+                        int[] faces = Extrudable._manifold.GetAdjacentFaceIdsAndEdgeCenters(1).faceId;
+                        Debug.Log("first edge: " + edges[0] + " second: " + edges[1] + " third: " + edges[2] + " fourth: " + edges[3]);
+                        Debug.Log("first face: " + faces[0] + " second: " + faces[1] + " third: " + faces[2] + " fourth: " + faces[3]);
+                        */
                     }
-                    ControlsManager.Instance.Extrudable.rebuild = true;
-                    //ControlsManager.Instance.UpdateControls();
-                    ControlsManager.FireUndoEndEvent(mesh, this, initialPosition, initialRotation);
+                    else
+                    {
+                        Extrudable.ChangeManifold(initialManifold);
+                    }          
                 }
             }
             else
             {
                 if (mode == InteractionMode.DUAL && refinementActive)
                 {
-                    if(activeControllers.Count == 2)
-                    {
-                        // Do the refinement and clear the splitManifold
-                        //ShowRefinement(activeControllers[0].AssociatedVertexID, activeControllers[1].AssociatedVertexID);
-                        activeControllers.Remove(this);
-                        activeControllers[0].ChangeInteraction(InteractionMode.SINGLE);
-                        activeControllers[0].EndHighlight();
-                        activeControllers[0].StopInteraction();
-                    }
-
                     if (refinementMode == RefinementMode.LOOP)
                     {
                         // This or TriangulateAndDraw + ControlsManager.Instance.the function that clears and updates
                         //Extrudable._manifold = splitManifold;
                         //Extrudable.UpdateMesh();
                         Extrudable.ChangeManifold(splitManifold);
-                        Debug.Log("pushing an undo for edge loop...");
-                        ControlsManager.FireUndoEndEvent(mesh, this, initialPosition, initialRotation); // possible quick fix
+                        ControlsManager.FireUndoEndEvent(mesh, this, initialPosition, initialRotation);
+                    }
+
+                    if (activeControllers.Count == 2)
+                    {
+                        // Do the refinement and clear the splitManifold
+                        //ShowRefinement(activeControllers[0].AssociatedVertexID, activeControllers[1].AssociatedVertexID);
+                        activeControllers.Remove(this);
+
+                        activeControllers[0].ChangeInteraction(InteractionMode.SINGLE);
+                        activeControllers[0].EndHighlight();
+                        activeControllers[0].IsDragged = false;
+                        activeControllers[0].StopInteraction();
                     }
 
                     GameObject refinePreview = GameObject.FindGameObjectWithTag("RefinePreview");
@@ -229,11 +253,11 @@ namespace Controls
                 }
                 
             }
+           
             ControlsManager.Instance.UpdateControls();
             if (edgebar)
                 Destroy(edgebar);
-
-            Debug.Log("Stopped interaction... vertexHandleController");
+ 
         }
 
         private RefinementMode DetermineRefinement(Dictionary<string, float> angleDict)
@@ -254,8 +278,22 @@ namespace Controls
             if (activeControllers.Count == 2)
             {
                 splitManifold = Extrudable._manifold.Copy();
-                Debug.Log(activeControllers[1].AssociatedVertexID);
-                int edge = adjacentVertices[activeControllers[1].AssociatedVertexID];
+                //int edge = adjacentVertices[activeControllers[1].AssociatedVertexID];
+
+                /*
+                Debug.Log("vertexid2: " + vertexid2);
+
+                string text = "";
+
+                foreach (KeyValuePair<int, int> kvp in adjacentVertices)
+                {
+                    //textBox3.Text += ("Key = {0}, Value = {1}", kvp.Key, kvp.Value);
+                    text += string.Format("Key = {0}, Value = {1}", kvp.Key, kvp.Value);
+                }
+                Debug.Log(text);
+                */
+                int edge = adjacentVertices[vertexid2];
+
 
                 int edge2 = splitManifold.GetNextHalfEdge(edge);
 
@@ -287,9 +325,14 @@ namespace Controls
             var halfedgeIds = new int[Extrudable._manifold.NumberOfHalfEdges()];
             Extrudable._manifold.GetHMeshIds(vertexIds, halfedgeIds, faceIds);
             List<int> halfedgeToVertex = new List<int>();
+
+            
+            //Debug.Log(halfedgeIds.Length);
+
             for (int i = 0; i < halfedgeIds.Length; i++)
             {
                 int h = halfedgeIds[i];
+                //Debug.Log("halfedgeID: " + h + " oppositeHalfedgeID: " + Extrudable._manifold.GetOppHalfEdge(h));
                 if (Extrudable._manifold.IsHalfedgeInUse(h))
                 {
                     int v = Extrudable._manifold.GetVertexId(h);
