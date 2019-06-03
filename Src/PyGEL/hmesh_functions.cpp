@@ -5,13 +5,12 @@
 //  Created by Jakob Andreas Bærentzen on 04/11/2017.
 //  Copyright © 2017 Jakob Andreas Bærentzen. All rights reserved.
 //
-
 #include "hmesh_functions.h"
 #include <string>
 #include <fstream>
 #include <iostream>
 
-#include <GEL/HMesh/triangulate.h>
+#include <GEL\HMesh\triangulate.h>
 
 using namespace std;
 using namespace HMesh;
@@ -561,3 +560,5 @@ void get_hmesh_ids(HMesh::Manifold& m, int32_t* vertex_ids, int32_t* halfedge_id
 		face_ids++;
 	}
 }
+
+

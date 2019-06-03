@@ -6,7 +6,7 @@
 //  Copyright © 2017 Jakob Andreas Bærentzen. All rights reserved.
 //
 
-#include <GEL/CGLA/CGLA.h>
+#include <GEL\CGLA\CGLA.h>
 #include "MeshDistance.h"
 using namespace HMesh;
 using namespace CGLA;

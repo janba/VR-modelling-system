@@ -15,8 +15,8 @@
 #define DLLEXPORT __declspec(dllexport)
 #endif
 
-#include <GEL/CGLA/Vec3d.h>
-#include <GEL/Geometry/KDTree.h>
+#include <GEL\CGLA\Vec3d.h>
+#include <GEL\Geometry\KDTree.h>
 
 #include "IntVector.h"
 #include "Vec3dVector.h"

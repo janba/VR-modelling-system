@@ -15,7 +15,7 @@
 #define DLLEXPORT __declspec(dllexport)
 #endif
 
-#include <GEL/CGLA/Vec3d.h>
+#include <GEL\CGLA\Vec3d.h>
 #include <vector>
 
 using Vec3dVector = std::vector<CGLA::Vec3d>;

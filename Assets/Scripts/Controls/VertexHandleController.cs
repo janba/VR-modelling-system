@@ -60,6 +60,7 @@ namespace Controls
         // Update is called once per frame
         void Update()
         {
+
             Vector3 left_ctrl_pt = GameObject.Find("LeftHandAnchor").transform.position;
             Vector3 right_ctrl_pt = GameObject.Find("RightHandAnchor").transform.position;
             float dist_left_ctrl = (10.0f * (left_ctrl_pt - transform.position)).sqrMagnitude;
@@ -76,7 +77,6 @@ namespace Controls
                     Vector3 targetPos = controllerPosInLocalSpace - initialControllerOffset;
                     targetPos.y = Mathf.Max(minDeltaY, targetPos.y);
                     transform.localPosition = targetPos;
-
                     Extrudable.MoveVertexTo(
                         AssociatedVertexID,
                         transform.localPosition);
@@ -120,9 +120,7 @@ namespace Controls
                             }
                         }
 
-
                         lastRefinementMode = refinementMode;
-
                     }
                 }
             }
@@ -130,10 +128,14 @@ namespace Controls
 
         public override void Interact()
         {
+            //Debug.Log(AssociatedVertexID);
             interactingControllerCollider = _controllerCollider.transform;
             activeControllers.Add(this);
 
+            //splitManifold = Extrudable._manifold.Copy();
             initialManifold = Extrudable._manifold.Copy();
+
+            //Debug.Log(Extrudable._manifold.)
 
             if (activeControllers.Count == 1)
             {
@@ -141,6 +143,7 @@ namespace Controls
                 IsDragged = true;
 
                 initialPosition = transform.localPosition;
+
                 initialRotation = transform.localRotation;
                 Vector3 controllerPosInLocalSpace = transform.parent.worldToLocalMatrix.MultiplyPoint(_controllerCollider.transform.position);
                 initialControllerOffset = controllerPosInLocalSpace - transform.localPosition;
@@ -183,6 +186,7 @@ namespace Controls
 
         public override void StopInteraction()
         {
+            Debug.Log("Mwello stopinteraction");
             updateInFrame = Time.frameCount;
             //if (activeControllers.Count == 1)
             //{
@@ -196,9 +200,9 @@ namespace Controls
                 {
                     IsDragged = false;
 
-
-                    if (Extrudable.isValidMesh()) {
                     int collapsed = Extrudable.CollapseShortEdges(0.03f);
+                    if (Extrudable.isValidMesh()) {
+                    
                         if (collapsed > 0)
                         {
                             ControlsManager.Instance.DestroyInvalidObjects();
@@ -222,13 +226,18 @@ namespace Controls
             }
             else
             {
+                Debug.Log("Mwello checking dual and refinementActive");
+
                 if (mode == InteractionMode.DUAL && refinementActive)
                 {
+                    Debug.Log("Mwello checking refinementMode is LOOP");
+
                     if (refinementMode == RefinementMode.LOOP)
                     {
                         // This or TriangulateAndDraw + ControlsManager.Instance.the function that clears and updates
                         //Extrudable._manifold = splitManifold;
                         //Extrudable.UpdateMesh();
+                        Debug.Log("Mwello changing to splitManifold");
                         Extrudable.ChangeManifold(splitManifold);
                         ControlsManager.FireUndoEndEvent(mesh, this, initialPosition, initialRotation);
                     }
@@ -262,11 +271,13 @@ namespace Controls
 
         private RefinementMode DetermineRefinement(Dictionary<string, float> angleDict)
         {
+            Debug.Log("Mwello update setting to NO");
             RefinementMode refmode = RefinementMode.NO;
 
             //if ((angleDict["left"] > 20f && angleDict["left"] < 90f) && (angleDict["right"] > 20f && angleDict["right"] < 90f))
             if ((angleDict["left"] > 30f) && (angleDict["right"] > 30f))
             {
+                Debug.Log("Mwello update setting to LOOP");
                 refmode = RefinementMode.LOOP;
             }
 
@@ -277,7 +288,8 @@ namespace Controls
         {
             if (activeControllers.Count == 2)
             {
-                splitManifold = Extrudable._manifold.Copy();
+                //splitManifold = Extrudable._manifold.Copy();
+
                 //int edge = adjacentVertices[activeControllers[1].AssociatedVertexID];
 
                 /*
@@ -294,6 +306,7 @@ namespace Controls
                 */
                 int edge = adjacentVertices[vertexid2];
 
+                splitManifold = Extrudable._manifold.Copy();
 
                 int edge2 = splitManifold.GetNextHalfEdge(edge);
 
@@ -308,7 +321,7 @@ namespace Controls
                 newMesh.normals = mesh.normals;
                 newMesh.subMeshCount = 2;
                 newMesh.SetIndices(mesh.triangles, MeshTopology.Triangles, 0);
-                newMesh.SetIndices(new int[0], MeshTopology.Lines, 1);
+                //newMesh.SetIndices(new int[0], MeshTopology.Lines, 1);
                 mesh = newMesh;
                 mesh.UploadMeshData(false);
                 GameObject refinePreview = GameObject.FindGameObjectWithTag("RefinePreview");
@@ -425,9 +438,9 @@ namespace Controls
             Mesh splitMesh = new Mesh();
             splitMesh.name = "extruded";
             splitMesh.SetIndices(new int[0], MeshTopology.Triangles, 0);
-            splitMesh.SetIndices(new int[0], MeshTopology.Lines, 1);
+            //splitMesh.SetIndices(new int[0], MeshTopology.Lines, 1);
             splitMesh.vertices = verticesFinal.ToArray();
-            splitMesh.normals = normalsFinal.ToArray();
+            //splitMesh.normals = normalsFinal.ToArray();
             splitMesh.subMeshCount = 2;
             splitMesh.SetIndices(polygonsFinal.ToArray(), MeshTopology.Triangles, 0);
             splitMesh.SetIndices(edges.ToArray(), MeshTopology.Lines, 1);

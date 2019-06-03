@@ -15,7 +15,7 @@
 #define DLLEXPORT __declspec(dllexport)
 #endif
 
-#include <GEL/HMesh/HMesh.h>
+#include <GEL\HMesh\HMesh.h>
 #include "IntVector.h"
 #include "Vec3dVector.h"
 
@@ -66,6 +66,7 @@ extern "C" {
 
     DLLEXPORT size_t Manifold_close_hole(HMesh::Manifold* self,size_t h);
     DLLEXPORT void Manifold_cleanup(HMesh::Manifold* self);
+	DLLEXPORT void Manifold_bridge_faces(HMesh::Manifold* self, size_t f0, size_t f1, int* f0vids, int* f1vids, size_t no_vertPairs);
 
 //  New functions that rely on walker
 

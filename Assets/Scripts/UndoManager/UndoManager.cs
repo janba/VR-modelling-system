@@ -160,8 +160,9 @@ public class UndoManager : MonoBehaviour
 		position++;
 		_extrudableMesh._manifold = undoActions[position].manifold.Copy();
 		_extrudableMesh.rebuild = true;
-		_controlsManager.DestroyInvalidObjects();
-		_controlsManager.UpdateControls();
+        //_controlsManager.DestroyInvalidObjects();
+        _controlsManager.Clear();
+        _controlsManager.UpdateControls();
 		
 		UpdateVisuals();
 		
@@ -176,27 +177,16 @@ public class UndoManager : MonoBehaviour
 		}
 		position--;
 
-        /*
-        Debug.Log("new position: " + position);
-        Debug.Log("1/6");
-        Debug.Log("Old Manifold info:");
-        Debug.Log("number of faces: " + undoActions[position+1].manifold.NumberOfFaces());
-        Debug.Log("number of vertices: " + undoActions[position+1].manifold.NumberOfVertices());
-        Debug.Log("number of halfedges: " + undoActions[position+1].manifold.NumberOfHalfEdges());
-        Debug.Log("New Manifold info:");
-        Debug.Log("number of faces: " + undoActions[position].manifold.NumberOfFaces());
-        Debug.Log("number of vertices: " + undoActions[position].manifold.NumberOfVertices());
-        Debug.Log("number of halfedges: " + undoActions[position].manifold.NumberOfHalfEdges());
-        Debug.Log("New Manifold info:");
-        Debug.Log("number of faces: " + undoActions[position - 1].manifold.NumberOfFaces());
-        Debug.Log("number of vertices: " + undoActions[position - 1].manifold.NumberOfVertices());
-        Debug.Log("number of halfedges: " + undoActions[position - 1].manifold.NumberOfHalfEdges());
-        */
         _extrudableMesh._manifold = undoActions[position].manifold.Copy();
         _extrudableMesh.rebuild = true;
-        _controlsManager.DestroyInvalidObjects();
+        _controlsManager.Clear();
         _controlsManager.UpdateControls();
+        //_controlsManager.DestroyInvalidObjects();
+        //_controlsManager.UpdateControls();
+        
         UpdateVisuals();
+ 
+
         return true;
     }
 

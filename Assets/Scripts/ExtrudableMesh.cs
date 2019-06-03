@@ -50,6 +50,7 @@ public class ExtrudableMesh : MonoBehaviour
         _manifold = BuildInitialManifold();
         TriangulateAndDrawManifold();
         GetComponent<MeshFilter>().mesh = mesh;
+
     }
 
     public Mesh GetMeshClone()
@@ -78,23 +79,27 @@ public class ExtrudableMesh : MonoBehaviour
     public void MoveTo(
         int faceId,
         int[] faceIds,
-        Vector3 destinationLocalSpace, bool snap)
+        Vector3 destinationLocalSpace, bool snap, bool tick)
     {
         var translation = destinationLocalSpace - _manifold.GetCenter(faceId);
         var normal = _manifold.GetFaceNormal(faceId);
         float d = Vector3.Dot(normal, translation);
+        Vector3 normalExtrusionVector = d * normal;
         if (snap)
-            _manifold.MoveFacesAlongVector(faceIds, d * normal);
+            if (tick)
+                _manifold.MoveFacesAlongVector(faceIds, new Vector3(Mathf.Round((normalExtrusionVector * 50).x) / 50, Mathf.Round((normalExtrusionVector * 50).y) / 50, Mathf.Round((normalExtrusionVector * 50).z) / 50));
+            else
+                _manifold.MoveFacesAlongVector(faceIds, d * normal);
         else
             _manifold.MoveFacesAlongVector(faceIds, translation);
 
     }
-
+    /*
     public void RotateFaceAroundPoint(int[] faceIds, Vector3 position, Quaternion rotation)
     {
         _manifold.RotateVerticesAroundPoint(faceIds, position, rotation);
     }
-
+    */
     public int CollapseShortEdges(double threshold = 0.01)
     {
         int res = _manifold.CollapseShortEdges(threshold);
@@ -217,19 +222,7 @@ public class ExtrudableMesh : MonoBehaviour
         manifold.AddFace(4, right);
         manifold.AddFace(4, top);
         manifold.AddFace(4, back);
-
-        /* //this is okay
-        manifold.RemoveFace(5);
-        manifold.AddFace(4, back);
-        manifold.RemoveFace(6);
-        manifold.AddFace(4, back);
-        manifold.RemoveFace(7);
-        manifold.AddFace(4, back);
-        manifold.RemoveFace(8);
-        manifold.AddFace(4, back);
-        */
         manifold.StitchMesh(1e-10);
-
         return manifold;
     }
 
@@ -311,21 +304,18 @@ public class ExtrudableMesh : MonoBehaviour
             for (var j = i; j < triangles.Length; j = j + 3)
             {
                 //Debug.Log("log 3: " + mesh.vertexCount);
-
                 if (triangle_triangleIntersection(vertices[triangles[i]], vertices[triangles[i + 1]], vertices[triangles[i + 2]], vertices[triangles[j]], vertices[triangles[j + 1]], vertices[triangles[j + 2]]))
                 {
                     
-                    Debug.Log("log 4: " + mesh.vertexCount);
-
                     Debug.Log("found a triangle intersection");
                     Debug.Log("Triangle 1:");
-                    Debug.Log("vertex 1: " + mesh.vertices[mesh.triangles[i]].ToString("F8"));
-                    Debug.Log("vertex 2: " + mesh.vertices[mesh.triangles[i + 1]].ToString("F8"));
-                    Debug.Log("vertex 3: " + mesh.vertices[mesh.triangles[i + 2]].ToString("F8"));
+                    Debug.Log("vertex 1: " + vertices[triangles[i]].ToString("F8"));
+                    Debug.Log("vertex 2: " + vertices[triangles[i + 1]].ToString("F8"));
+                    Debug.Log("vertex 3: " + vertices[triangles[i + 2]].ToString("F8"));
                     Debug.Log("Triangle 2:");
-                    Debug.Log("vertex 1: " + mesh.vertices[mesh.triangles[j]].ToString("F8"));
-                    Debug.Log("vertex 2: " + mesh.vertices[mesh.triangles[j + 1]].ToString("F8"));
-                    Debug.Log("vertex 3: " + mesh.vertices[mesh.triangles[j + 2]].ToString("F8"));
+                    Debug.Log("vertex 1: " + vertices[triangles[j]].ToString("F8"));
+                    Debug.Log("vertex 2: " + vertices[triangles[j + 1]].ToString("F8"));
+                    Debug.Log("vertex 3: " + vertices[triangles[j + 2]].ToString("F8"));
                     
                     return false;
                 }
@@ -338,7 +328,7 @@ public class ExtrudableMesh : MonoBehaviour
     public bool triangle_triangleIntersection(Vector3 v1, Vector3 v2, Vector3 v3, Vector3 v4, Vector3 v5, Vector3 v6)
     {
 
-        double epsilon = 0.001;
+        double epsilon = 0.00001;
         var N1 = Vector3.Cross((v2 - v1), (v3 - v1));
         float d1 = Vector3.Dot(-N1, v1);
         float sd1, sd2, sd3;
@@ -451,7 +441,7 @@ public class ExtrudableMesh : MonoBehaviour
         else
         {
             //Console.WriteLine("t coplanar triangle");
-            return false; // coplanar triangle
+            return true; // coplanar triangle
         }
 
         //second triangle
@@ -493,7 +483,7 @@ public class ExtrudableMesh : MonoBehaviour
         else
         {
             //Console.WriteLine("u coplanar triangle");
-            return false; // coplanar triangle
+            return true; // coplanar triangle
         }
 
         if (t1 > t2)
@@ -513,5 +503,10 @@ public class ExtrudableMesh : MonoBehaviour
             return true;
         }
         return false;
+    }
+
+    public void bridgeFaces(int faceId1, int faceId2, int[] face1Vertices, int[] face2Vertices, int noVertPairs)
+    {
+        _manifold.BridgeFaces(faceId1, faceId2, face1Vertices, face2Vertices, noVertPairs);
     }
 }

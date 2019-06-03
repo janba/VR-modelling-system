@@ -6,8 +6,10 @@
 //  Copyright © 2017 Jakob Andreas Bærentzen. All rights reserved.
 //
 
+
 #include "IntVector.h"
 #include <iostream>
+
 using namespace std;
 
 IntVector* IntVector_new(size_t s) {

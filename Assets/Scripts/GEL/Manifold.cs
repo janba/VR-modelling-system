@@ -91,7 +91,12 @@ namespace Assets.GEL
             Manifold_vertices(_manifold, intVector.GetVector());
             return intVector;
         }
-
+        
+        public void BridgeFaces(int fid1, int fid2, int[] f1vids, int[] f2vids, int noVertPairs)
+        {
+            Manifold_bridge_faces(_manifold, fid1, fid2, f1vids, f2vids, noVertPairs);
+        }
+        
         [Obsolete("GetFaces is deprecated.")]
         public int GetFaces(IntPtr[] faces)
         {
@@ -202,14 +207,14 @@ namespace Assets.GEL
         {
             MoveFacesAlongVector(faceIds, new double[] { direction.x, direction.y, direction.z });
         }
-
+        /*
         public void RotateVerticesAroundPoint(int[] faceIds, Vector3 position, Quaternion rotation)
         {
             var pos = new double[] { position.x, position.y, position.z };
             var quat = new double[] { rotation.x, rotation.y, rotation.z, rotation.w };
             rotate_faces_around_point(_manifold, faceIds.Length, faceIds, pos, quat);
         }
-
+        */
         public void MoveFacesAlongVector(int[] faceIds, double[] direction)
         {
             move_faces_along_vector(_manifold, faceIds.Length, faceIds, direction);
@@ -318,6 +323,18 @@ namespace Assets.GEL
                 res.Add(Walker_incident_vertex(_manifold, edgeId));
             }
 
+            return res;
+        }
+
+        public Dictionary<int, Vector3> GetVertexPositionsFromFace(int faceId)
+        {
+            HashSet<int> vertices = GetVertexIds(faceId);
+            Dictionary<int, Vector3> res = new Dictionary<int, Vector3>();
+
+            foreach (int vertexId in vertices)
+            {
+                res.Add(vertexId, VertexPosition(vertexId));
+            }
             return res;
         }
 

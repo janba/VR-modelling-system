@@ -15,7 +15,7 @@
 #define DLLEXPORT __declspec(dllexport)
 #endif
 
-#include <GEL/HMesh/HMesh.h>
+#include <GEL\HMesh\HMesh.h>
 
 extern "C" {
     DLLEXPORT void stitch_mesh(HMesh::Manifold* m_ptr, double rad);

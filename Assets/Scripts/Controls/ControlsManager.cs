@@ -486,6 +486,43 @@ namespace Controls
             }
         }
 
+        public void DeleteControlsExceptFaces(int[] extrudingFaces, int faceId)
+        {
+            var toDeleteV = new List<int>(_vertexHandles.Keys);
+            foreach (var v in toDeleteV)
+            {
+                var obj = _vertexHandles[v];
+                _vertexHandles.Remove(v);
+                Destroy(obj.gameObject);
+            }
+            var toDeleteF = new List<int>(_faceHandles.Keys).FindAll(key => extrudingFaces.Contains(key));
+            foreach (var f in toDeleteF)
+            {
+                if (f != faceId)
+                {
+                    var obj = _faceHandles[f];
+                    _faceHandles.Remove(f);
+                    Destroy(obj.gameObject);
+                }
+            }
+            var toDeleteE = new List<int>(_edgeHandles.Keys);
+            foreach (var e in toDeleteE)
+            {
+                var obj = _edgeHandles[e];
+                var faces = new[] { obj.FirstFace, obj.SecondFace };
+                foreach (var face in faces)
+                {
+                    FaceHandleController fhc;
+                    if (_faceHandles.TryGetValue(face, out fhc))
+                    {
+                        fhc.ConnectedLatches.Remove(obj);
+                    }
+                }
+                _edgeHandles.Remove(e);
+                Destroy(obj.gameObject);
+            }
+        }
+
         public void HideNonAdjacentVertices(Dictionary<int, int> adjacentVertices)
         {
             var toDeleteV = new List<int>(_vertexHandles.Keys).FindAll(key => !adjacentVertices.ContainsKey(key));

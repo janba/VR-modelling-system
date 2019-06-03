@@ -15,7 +15,7 @@
 #define DLLEXPORT __declspec(dllexport)
 #endif
 
-#include <GEL/HMesh/Manifold.h>
+#include <GEL\HMesh\Manifold.h>
 
 class GLManifoldViewer {
     GLFWwindow* window = 0;

@@ -9,9 +9,11 @@
 #include <iostream>
 #include <fstream>
 #include <string>
-#include <GEL/HMesh/HMesh.h>
+#include <GEL\HMesh\HMesh.h>
 #include "IntVector.h"
 #include "Manifold.h"
+
+
 
 using namespace HMesh;
 using namespace CGLA;
@@ -157,6 +159,14 @@ void Manifold_add_face(HMesh::Manifold* self, size_t no_verts, double* pos) {
         pts[i] = v;
     }
     self->add_face(pts);
+}
+
+void Manifold_bridge_faces(HMesh::Manifold* self, size_t f0, size_t f1, int* f0vids, int* f1vids, size_t no_vertPairs) {
+		vector<std::pair<VertexID, VertexID>> pts(no_vertPairs);
+		for (size_t i = 0; i < no_vertPairs; ++i) {
+			pts[i] = std::pair<VertexID, VertexID>(VertexID(f0vids[i]), VertexID(f1vids[i]));
+		}
+		self->bridge_faces(FaceID(f0), FaceID(f1), pts);
 }
 
 bool Manifold_remove_face(HMesh::Manifold* self,size_t fid) {

@@ -88,10 +88,11 @@ namespace Assets.GEL
 
         [DllImport("GELExt")]
         protected static extern void move_face_along_vector(IntPtr manifold, int face_id, double[] direction);
-
+        /*
         [DllImport("GELExt")]
         protected static extern void rotate_faces_around_point(IntPtr manifold, int number_of_faces, int[] face_ids,
             double[] point, double[] rotation);
+        */
 
         [DllImport("GELExt")]
         protected static extern void move_faces_along_vector(IntPtr manifold, int number_of_faces, int[] faceIds, double[] direction);
@@ -170,5 +171,9 @@ namespace Assets.GEL
 
         [DllImport("GELExt")]
         protected static extern int Walker_incident_face(IntPtr manifold, int halfedgeId);
+
+        [DllImport("GELExt")]
+        protected static extern int Manifold_bridge_faces(IntPtr manifold, int face1, int face2, int[] f1vids, int[] f2vids, int noVertPairs);
+        
     }
 }
