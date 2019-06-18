@@ -88,12 +88,11 @@ namespace Assets.GEL
 
         [DllImport("GELExt")]
         protected static extern void move_face_along_vector(IntPtr manifold, int face_id, double[] direction);
-        /*
+        
         [DllImport("GELExt")]
         protected static extern void rotate_faces_around_point(IntPtr manifold, int number_of_faces, int[] face_ids,
             double[] point, double[] rotation);
-        */
-
+       
         [DllImport("GELExt")]
         protected static extern void move_faces_along_vector(IntPtr manifold, int number_of_faces, int[] faceIds, double[] direction);
 

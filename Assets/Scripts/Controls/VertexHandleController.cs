@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using Assets.GEL;
 
+
 namespace Controls
 {
     public class VertexHandleController : IInteractableObject
@@ -10,13 +11,15 @@ namespace Controls
         {
             LOOP,
             EDGE,
-            NO
+            NO      
         }
 
         public bool IsDragged = false;
         public int AssociatedVertexID;
 
         public ExtrudableMesh Extrudable;
+
+        public OvrAvatar Avatar;
 
         private Vector3 initialControllerOffset;
 
@@ -41,6 +44,7 @@ namespace Controls
         private RefinementMode refinementMode = RefinementMode.NO;
 
         public bool refinementActive = true;
+        private GrabControl gc;
 
         private Manifold splitManifold;
         private RefinementMode lastRefinementMode = RefinementMode.NO;
@@ -73,13 +77,65 @@ namespace Controls
             {
                 if (IsDragged)
                 {
+                    if (ControlsManager.Instance.GetHandle(1) != null)
+                    {
+                        ControlsManager.Instance.ClearFaceHandlesAndEdges();
+                    }
+
                     Vector3 controllerPosInLocalSpace = transform.parent.worldToLocalMatrix.MultiplyPoint(_controllerCollider.transform.position);
                     Vector3 targetPos = controllerPosInLocalSpace - initialControllerOffset;
                     targetPos.y = Mathf.Max(minDeltaY, targetPos.y);
                     transform.localPosition = targetPos;
+
                     Extrudable.MoveVertexTo(
-                        AssociatedVertexID,
-                        transform.localPosition);
+                    AssociatedVertexID,
+                    transform.localPosition);
+
+                    GrabControl leftGrabControl = GameObject.Find("leftGrabControl").GetComponent<GrabControl>();
+                    GrabControl rightGrabControl = GameObject.Find("rightGrabControl").GetComponent<GrabControl>();
+
+                    if (leftGrabControl.collidedVertexHandle != null && leftGrabControl.HandState.ToString().Equals("TOUCHING") && !OVRInput.Get(OVRInput.Touch.Any, OVRInput.Controller.LTouch))
+                    {
+                        Debug.Log("snapping to vertex: " + leftGrabControl.collidedVertexHandle.AssociatedVertexID);                    
+
+                        Vector3 distanceVector = initialPosition - leftGrabControl.collidedVertexHandle.transform.localPosition;
+                        Vector3 translationVector = new Vector3(0f, 0f, 0f);
+
+                        if (Mathf.Abs(distanceVector.x) >= Mathf.Abs(distanceVector.y) && Mathf.Abs(distanceVector.x) >= Mathf.Abs(distanceVector.z))
+                            translationVector = new Vector3(distanceVector.x, 0f, 0f);
+
+                        else if (Mathf.Abs(distanceVector.y) >= Mathf.Abs(distanceVector.x) && Mathf.Abs(distanceVector.y) >= Mathf.Abs(distanceVector.z))
+                            translationVector = new Vector3(0f, distanceVector.y, 0f);
+
+                        else if (Mathf.Abs(distanceVector.z) >= Mathf.Abs(distanceVector.x) && Mathf.Abs(distanceVector.z) >= Mathf.Abs(distanceVector.y))
+                            translationVector = new Vector3(0f, 0f, distanceVector.z);
+
+                        Extrudable.MoveVertexTo(
+                            AssociatedVertexID,
+                            leftGrabControl.collidedVertexHandle.transform.localPosition + translationVector);
+
+                    }
+                    else if (rightGrabControl.collidedVertexHandle != null && rightGrabControl.HandState.ToString().Equals("TOUCHING") && !OVRInput.Get(OVRInput.Touch.Any, OVRInput.Controller.RTouch))
+                    {
+                        Debug.Log("snapping to vertex: " + rightGrabControl.collidedVertexHandle.AssociatedVertexID);
+
+                        Vector3 distanceVector = initialPosition - rightGrabControl.collidedVertexHandle.transform.localPosition;
+                        Vector3 translationVector = new Vector3(0f, 0f, 0f);
+
+                        if (Mathf.Abs(distanceVector.x) >= Mathf.Abs(distanceVector.y) && Mathf.Abs(distanceVector.x) >= Mathf.Abs(distanceVector.z))
+                            translationVector = new Vector3(distanceVector.x, 0f, 0f);
+
+                        else if (Mathf.Abs(distanceVector.y) >= Mathf.Abs(distanceVector.x) && Mathf.Abs(distanceVector.y) >= Mathf.Abs(distanceVector.z))
+                            translationVector = new Vector3(0f, distanceVector.y, 0f);
+
+                        else if (Mathf.Abs(distanceVector.z) >= Mathf.Abs(distanceVector.x) && Mathf.Abs(distanceVector.z) >= Mathf.Abs(distanceVector.y))
+                            translationVector = new Vector3(0f, 0f, distanceVector.z);
+
+                        Extrudable.MoveVertexTo(
+                            AssociatedVertexID,
+                            rightGrabControl.collidedVertexHandle.transform.localPosition + translationVector);
+
+                    }
 
                     ControlsManager.Instance.Extrudable.rebuild = true;
                     //ControlsManager.Instance.UpdateControls();
@@ -111,8 +167,9 @@ namespace Controls
                         if (refinementMode != lastRefinementMode)
                         {
                             if (refinementMode == RefinementMode.LOOP)
+                            {
                                 ShowRefinement(activeControllers[0].AssociatedVertexID, activeControllers[1].AssociatedVertexID);
-
+                            }
                             else if (refinementMode == RefinementMode.NO)
                             {
                                 GameObject refinePreview = GameObject.FindGameObjectWithTag("RefinePreview");
@@ -128,6 +185,7 @@ namespace Controls
 
         public override void Interact()
         {
+
             //Debug.Log(AssociatedVertexID);
             interactingControllerCollider = _controllerCollider.transform;
             activeControllers.Add(this);
@@ -136,6 +194,7 @@ namespace Controls
             initialManifold = Extrudable._manifold.Copy();
 
             //Debug.Log(Extrudable._manifold.)
+            adjacentVertices = AdjacentVertices();
 
             if (activeControllers.Count == 1)
             {
@@ -143,8 +202,8 @@ namespace Controls
                 IsDragged = true;
 
                 initialPosition = transform.localPosition;
-
                 initialRotation = transform.localRotation;
+
                 Vector3 controllerPosInLocalSpace = transform.parent.worldToLocalMatrix.MultiplyPoint(_controllerCollider.transform.position);
                 initialControllerOffset = controllerPosInLocalSpace - transform.localPosition;
                 ControlsManager.Instance.Extrudable.rebuild = true;
@@ -155,16 +214,18 @@ namespace Controls
                     minDeltaY = -100f;
 
                 // Display two handed options
-                adjacentVertices = AdjacentVertices();
-                ControlsManager.Instance.HideNonAdjacentVertices(adjacentVertices);
             }
-            else if (activeControllers.Count == 2 && refinementActive)
+            else if (activeControllers.Count == 2 && refinementActive && adjacentVertices.ContainsKey(activeControllers[0].AssociatedVertexID) && adjacentVertices.ContainsKey(activeControllers[1].AssociatedVertexID))
             {
                 activeControllers[0].ChangeInteraction(InteractionMode.DUAL);
                 ChangeInteraction(InteractionMode.DUAL);
+                Extrudable.MoveVertexTo(activeControllers[0].AssociatedVertexID, activeControllers[0].transform.localPosition);
+                Extrudable.rebuild = true;
                 initialRotation = transform.localRotation;
                 AddEdgeBarSignifier();
             }
+
+            ControlsManager.Instance.DestroyFacesAndEdgeHandles();
 
         }
 
@@ -186,7 +247,6 @@ namespace Controls
 
         public override void StopInteraction()
         {
-            Debug.Log("Mwello stopinteraction");
             updateInFrame = Time.frameCount;
             //if (activeControllers.Count == 1)
             //{
@@ -200,24 +260,28 @@ namespace Controls
                 {
                     IsDragged = false;
 
-                    int collapsed = Extrudable.CollapseShortEdges(0.03f);
-                    if (Extrudable.isValidMesh()) {
-                    
-                        if (collapsed > 0)
+                    int collapsed = Extrudable.CollapseShortEdges(0.015f);
+                    if (collapsed > 0)
+                    {
+                        Extrudable.TriangulateAndDrawManifold();
+                        if (Extrudable.isValidMesh())
                         {
                             ControlsManager.Instance.DestroyInvalidObjects();
+                            ControlsManager.Instance.Extrudable.rebuild = true;
+                            //ControlsManager.Instance.UpdateControls();
+                            ControlsManager.FireUndoEndEvent(mesh, this, initialPosition, initialRotation);
                         }
+                        else
+                        {
+                            Extrudable.ChangeManifold(initialManifold);
+                        }
+                    }
+                    else if (Extrudable.isValidMesh())
+                    {
                         ControlsManager.Instance.Extrudable.rebuild = true;
                         //ControlsManager.Instance.UpdateControls();
                         ControlsManager.FireUndoEndEvent(mesh, this, initialPosition, initialRotation);
-
-                        /*
-                        int[] edges = Extrudable._manifold.GetAdjacentFaceIdsAndEdgeCenters(1).edgeId;
-                        int[] faces = Extrudable._manifold.GetAdjacentFaceIdsAndEdgeCenters(1).faceId;
-                        Debug.Log("first edge: " + edges[0] + " second: " + edges[1] + " third: " + edges[2] + " fourth: " + edges[3]);
-                        Debug.Log("first face: " + faces[0] + " second: " + faces[1] + " third: " + faces[2] + " fourth: " + faces[3]);
-                        */
-                    }
+                    }                
                     else
                     {
                         Extrudable.ChangeManifold(initialManifold);
@@ -226,18 +290,15 @@ namespace Controls
             }
             else
             {
-                Debug.Log("Mwello checking dual and refinementActive");
 
                 if (mode == InteractionMode.DUAL && refinementActive)
                 {
-                    Debug.Log("Mwello checking refinementMode is LOOP");
 
                     if (refinementMode == RefinementMode.LOOP)
                     {
                         // This or TriangulateAndDraw + ControlsManager.Instance.the function that clears and updates
                         //Extrudable._manifold = splitManifold;
                         //Extrudable.UpdateMesh();
-                        Debug.Log("Mwello changing to splitManifold");
                         Extrudable.ChangeManifold(splitManifold);
                         ControlsManager.FireUndoEndEvent(mesh, this, initialPosition, initialRotation);
                     }
@@ -262,22 +323,20 @@ namespace Controls
                 }
                 
             }
-           
-            ControlsManager.Instance.UpdateControls();
+            //ControlsManager.Instance.UpdateControls();
+
             if (edgebar)
-                Destroy(edgebar);
+            Destroy(edgebar);
  
         }
 
         private RefinementMode DetermineRefinement(Dictionary<string, float> angleDict)
         {
-            Debug.Log("Mwello update setting to NO");
             RefinementMode refmode = RefinementMode.NO;
 
             //if ((angleDict["left"] > 20f && angleDict["left"] < 90f) && (angleDict["right"] > 20f && angleDict["right"] < 90f))
             if ((angleDict["left"] > 30f) && (angleDict["right"] > 30f))
             {
-                Debug.Log("Mwello update setting to LOOP");
                 refmode = RefinementMode.LOOP;
             }
 

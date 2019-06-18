@@ -76,11 +76,13 @@ public class WorktableController : MonoBehaviour
 
     public bool LoadMesh(string filename)
     {
+        Debug.Log("worktableController here... trying to load..." + " " + filename);
         filename = String.Format("Assets/Models/Saved/{0}.obj", filename);
         _extrudableMesh._manifold = new Manifold();
         var manifold = new Manifold();
 
         bool loaded = manifold.LoadFromOBJ(filename);
+
         if (loaded)
         {
             manifold.StitchMesh(1e-10);

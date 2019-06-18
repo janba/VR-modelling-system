@@ -10,7 +10,9 @@
 #include <fstream>
 #include <iostream>
 
-#include <GEL\HMesh\triangulate.h>
+#include <GEL/HMesh/triangulate.h>
+#include <GEL/CGLA/Mat4x4d.h>
+#include <GEL/CGLA/Quatd.h>
 
 using namespace std;
 using namespace HMesh;
@@ -37,7 +39,7 @@ void stitch_mesh(HMesh::Manifold* m_ptr, double rad) {
 }
 
 bool obj_load(char* fn, HMesh::Manifold* m_ptr) {
-    return obj_load(string(fn), *m_ptr, true);
+    return obj_load(string(fn), *m_ptr);
 }
 
 bool off_load(char* fn, HMesh::Manifold* m_ptr) {
@@ -150,7 +152,7 @@ void loop_smooth(HMesh::Manifold* m_ptr) {
 }
 
 void shortest_edge_triangulate(HMesh::Manifold* m_ptr) {
-    shortest_edge_triangulate(*m_ptr);
+    shortest_edge_triangulate(m_ptr);
 }
 
 void extrude_faces(Manifold & m, size_t face_number, int* face_ids) {
@@ -258,7 +260,7 @@ void extrude_along_edge_loop(Manifold& m, const HalfEdgeSet& hset)
 }
 
 
-void triangulate(Manifold& manifold) {
+void triangulate(HMesh::Manifold* manifold) {
 	shortest_edge_triangulate(manifold);
 	//triangulate_by_vertex_face_split(manifold);
 }
@@ -305,6 +307,29 @@ void move_face_along_vector(HMesh::Manifold& m, int face_id, double* direction) 
 		new_pos[2] = old_pos[2] + direction[2];
 		m.pos(v) = new_pos;
 	});
+}
+
+void rotate_faces_around_point(HMesh::Manifold& m, size_t number_of_faces, int* face_ids, double* point, double* rotation) {
+	using namespace CGLA;
+	Mat4x4d transform = translation_Mat4x4d({ point[0], point[1], point[2] })
+		* Quatd(rotation[0], rotation[1], rotation[2], rotation[3]).get_Mat4x4d()
+		* translation_Mat4x4d({ -point[0], -point[1], -point[2] });
+	vector<VertexID> passed;
+	for (int i = 0; i < number_of_faces; i++) {
+		auto f = FaceID(face_ids[i]);
+		circulate_face_ccw(m, f, [&](VertexID v) {
+			bool is_passed = false;
+			for (auto p : passed) {
+				if (is_passed = p == v) break;
+			}
+			if (!is_passed) {
+				passed.push_back(v);
+				auto old_pos = CGLA::Vec4d(m.pos(v), 1.0);
+				auto new_pos = transform * old_pos;
+				m.pos(v) = CGLA::Vec3d(new_pos[0], new_pos[1], new_pos[2]);
+			}
+		});
+	}
 }
 
 void move_faces_along_vector(HMesh::Manifold& m, size_t number_of_faces, int* face_ids, double* direction) {

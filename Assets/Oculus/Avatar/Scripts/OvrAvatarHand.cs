@@ -14,6 +14,8 @@ public class OvrAvatarHand : MonoBehaviour
 
     void OnTriggerEnter(Collider collider)
     {
+        Debug.Log("hello");
+        //Debug.Log("Hello I just hit vertex: " + collider.GetComponent<VertexHandleController>().AssociatedVertexID);
     }
 
     void OnTriggerExit(Collider collider)

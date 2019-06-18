@@ -137,6 +137,20 @@ namespace Controls
             _vertexHandles.Clear();
         }
 
+        public void ClearFaceHandlesAndEdges()
+        {
+            foreach (var fhc in _faceHandles)
+            {
+                Destroy(fhc.Value.gameObject);
+            }
+            _faceHandles.Clear();
+            foreach (var l in _edgeHandles)
+            {
+                Destroy(l.Value.gameObject);
+            }
+            _edgeHandles.Clear();
+        }
+
         public FaceHandleController GetHandle(int faceId)
         {
             FaceHandleController reqHandle = null;
@@ -296,6 +310,40 @@ namespace Controls
                     continue;
 
                 InstantiateVertexHandle(manifold, id);
+            }
+        }
+
+        public void updateAdjacentFaceHandles(int face)
+        {
+            Manifold manifold = Extrudable._manifold;
+
+            //Use average of edgecenters if we have more than 4 edges.
+            var temp = manifold.GetAdjacentFaceIdsAndEdgeCenters(face);
+            foreach (int faceHandleId in temp.faceId) {
+
+                var center = manifold.GetCenterTriangulated(faceHandleId);
+                FaceHandleController faceHandleController = _faceHandles[faceHandleId];
+
+                if (temp.edgeCenter.Length > 4)
+                {
+                    Vector3 cent = new Vector3();
+                    foreach (Vector3 v in temp.edgeCenter)
+                    {
+                        cent[0] += v[0];
+                        cent[1] += v[1];
+                        cent[2] += v[2];
+                    }
+                    cent[0] /= temp.edgeCenter.Length;
+                    cent[1] /= temp.edgeCenter.Length;
+                    cent[2] /= temp.edgeCenter.Length;
+
+                    center = cent;
+                }
+
+                // Rotate the handle to look in the opposite direction of face's normal
+                var normal = manifold.GetFaceNormal(faceHandleId);
+                var edgeNormal = manifold.GetFirstEdgeDirection(faceHandleId);
+                faceHandleController.UpdatePositionAndRotation(center, normal, edgeNormal);
             }
         }
 
@@ -556,5 +604,33 @@ namespace Controls
                 Destroy(obj.gameObject);
             }
         }
+
+        public void DestroyFacesAndEdgeHandles()
+        {
+            var toDeleteF = new List<int>(_faceHandles.Keys);
+            foreach (var f in toDeleteF)
+            {
+                var obj = _faceHandles[f];
+                _faceHandles.Remove(f);
+                Destroy(obj.gameObject);
+            }
+            var toDeleteE = new List<int>(_edgeHandles.Keys);
+            foreach (var e in toDeleteE)
+            {
+                var obj = _edgeHandles[e];
+                var faces = new[] { obj.FirstFace, obj.SecondFace };
+                foreach (var face in faces)
+                {
+                    FaceHandleController fhc;
+                    if (_faceHandles.TryGetValue(face, out fhc))
+                    {
+                        fhc.ConnectedLatches.Remove(obj);
+                    }
+                }
+                _edgeHandles.Remove(e);
+                Destroy(obj.gameObject);
+            }
+        }
+
     }
 }

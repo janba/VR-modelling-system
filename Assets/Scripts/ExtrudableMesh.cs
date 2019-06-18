@@ -84,22 +84,35 @@ public class ExtrudableMesh : MonoBehaviour
         var translation = destinationLocalSpace - _manifold.GetCenter(faceId);
         var normal = _manifold.GetFaceNormal(faceId);
         float d = Vector3.Dot(normal, translation);
-        Vector3 normalExtrusionVector = d * normal;
-        if (snap)
-            if (tick)
-                _manifold.MoveFacesAlongVector(faceIds, new Vector3(Mathf.Round((normalExtrusionVector * 50).x) / 50, Mathf.Round((normalExtrusionVector * 50).y) / 50, Mathf.Round((normalExtrusionVector * 50).z) / 50));
-            else
-                _manifold.MoveFacesAlongVector(faceIds, d * normal);
-        else
-            _manifold.MoveFacesAlongVector(faceIds, translation);
 
+        if (snap)
+        {
+            if (tick)
+            {
+                Vector3 normalExtrusionVector = d * normal;
+                float originalMagnitude = normalExtrusionVector.magnitude;
+                float roundedMagnitude = Mathf.Round(originalMagnitude * 50) / 50;
+                float scale = roundedMagnitude / originalMagnitude;
+                Vector3 scaleVector = new Vector3(scale, scale, scale);
+
+                _manifold.MoveFacesAlongVector(faceIds, Vector3.Scale(normalExtrusionVector, scaleVector));
+            }
+            else
+            {
+                _manifold.MoveFacesAlongVector(faceIds, d * normal);
+            }
+        }
+        else
+        {
+            _manifold.MoveFacesAlongVector(faceIds, translation);
+        }
     }
-    /*
+    
     public void RotateFaceAroundPoint(int[] faceIds, Vector3 position, Quaternion rotation)
     {
         _manifold.RotateVerticesAroundPoint(faceIds, position, rotation);
     }
-    */
+    
     public int CollapseShortEdges(double threshold = 0.01)
     {
         int res = _manifold.CollapseShortEdges(threshold);
@@ -110,6 +123,11 @@ public class ExtrudableMesh : MonoBehaviour
     {
         var position = _manifold.VertexPosition(vertexId);
         _manifold.MoveVertexAlongVector(vertexId, localSpaceDestination - position);
+    }
+
+    public void MoveVertexAlongVector(int vertexId, Vector3 translation)
+    {
+        _manifold.MoveVertexAlongVector(vertexId, translation);
     }
 
     public void LoadMesh(Manifold manifold)
@@ -306,7 +324,7 @@ public class ExtrudableMesh : MonoBehaviour
                 //Debug.Log("log 3: " + mesh.vertexCount);
                 if (triangle_triangleIntersection(vertices[triangles[i]], vertices[triangles[i + 1]], vertices[triangles[i + 2]], vertices[triangles[j]], vertices[triangles[j + 1]], vertices[triangles[j + 2]]))
                 {
-                    
+                    /*
                     Debug.Log("found a triangle intersection");
                     Debug.Log("Triangle 1:");
                     Debug.Log("vertex 1: " + vertices[triangles[i]].ToString("F8"));
@@ -316,7 +334,7 @@ public class ExtrudableMesh : MonoBehaviour
                     Debug.Log("vertex 1: " + vertices[triangles[j]].ToString("F8"));
                     Debug.Log("vertex 2: " + vertices[triangles[j + 1]].ToString("F8"));
                     Debug.Log("vertex 3: " + vertices[triangles[j + 2]].ToString("F8"));
-                    
+                    */
                     return false;
                 }
             }

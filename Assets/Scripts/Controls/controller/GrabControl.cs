@@ -12,7 +12,8 @@ public class GrabControl : MonoBehaviour {
 	};
 
 	public OVRInput.Controller Controller = OVRInput.Controller.RTouch;
-	public State HandState = State.EMPTY;
+
+    public State HandState = State.EMPTY;
 	
 	public GrabControl OtherHand;
 	
@@ -22,8 +23,11 @@ public class GrabControl : MonoBehaviour {
 	private ControlsManager controls;
 
 	public SphereCollider controllerSphereCollider;
+    public VertexHandleController collidedVertexHandle;
+    public FaceHandleController collidedFaceHandle;
 
-	private float lastIndexFingerState = 0;
+
+    private float lastIndexFingerState = 0;
 
     public Color defaultColor;
     public Color hoverColor;
@@ -35,7 +39,7 @@ public class GrabControl : MonoBehaviour {
         _interactableObjects = new List<IInteractableObject>();
         controls = FindObjectOfType<ControlsManager>();
         controllerSphereCollider = transform.childCount > 0 ? transform.GetChild(0).GetComponent<SphereCollider>() : GetComponent<SphereCollider>();
-
+ 
         _meshRenderer = GetComponent<MeshRenderer>();
         defaultColor = _meshRenderer.material.color;
     }
@@ -54,9 +58,19 @@ public class GrabControl : MonoBehaviour {
     {
         var iobj = collider.GetComponent<IInteractableObject>();
         var colliderGameObject = collider.gameObject;
+
+        if(colliderGameObject.GetComponent<VertexHandleController>() != null)
+        {
+            collidedVertexHandle = colliderGameObject.GetComponent<VertexHandleController>();
+        }
+        else if (colliderGameObject.GetComponent<FaceHandleController>() != null)
+        {
+            collidedFaceHandle = colliderGameObject.GetComponent<FaceHandleController>();
+        }
+
+
         if (HandState == State.EMPTY || HandState == State.TOUCHING)
         {
-            
             if (iobj != null)
             {
                 if (_interactableObjects.Count > 0)
@@ -69,7 +83,7 @@ public class GrabControl : MonoBehaviour {
                 HandState = State.TOUCHING;
                 UpdateHoverColor();
             }
-        }
+        } 
         
     }
 
@@ -99,6 +113,10 @@ public class GrabControl : MonoBehaviour {
             }
             UpdateHoverColor();
         }
+
+        collidedVertexHandle = null;
+        collidedFaceHandle = null;
+
     }
 
 

@@ -54,15 +54,16 @@ namespace Controls
 
         IEnumerator LoadModel()
         {
-            //Debug.Log("Load");
+            Debug.Log("Load");
             //isInteracting = true;
             var component = GetComponent<MeshRenderer>();
             Material material = component.material;
             material.color = Color.blue;
 
             WorktableController _worktableController = transform.parent.parent.gameObject.GetComponent<WorktableController>();
-            
+
             bool success = _worktableController.LoadMesh(transform.parent.name);
+
             Debug.Log(success);
             //ScreenController _screenController = UIPanel.GetComponent<ScreenController>();
             //_screenController.OpenImportUI(isOpen);

@@ -98,6 +98,8 @@ extern "C" {
 
 	DLLEXPORT void move_faces_along_normal(HMesh::Manifold& m, size_t number_of_faces, int* face_ids, double magnitude);
 
+	DLLEXPORT void rotate_faces_around_point(HMesh::Manifold& m, size_t number_of_faces, int* face_ids, double* point, double* rotation);
+
 	DLLEXPORT void log_manifold(HMesh::Manifold& m, char* file_name);
 
 	DLLEXPORT void center(HMesh::Manifold& m, int face_id, double* center);

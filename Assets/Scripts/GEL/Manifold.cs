@@ -207,14 +207,14 @@ namespace Assets.GEL
         {
             MoveFacesAlongVector(faceIds, new double[] { direction.x, direction.y, direction.z });
         }
-        /*
+        
         public void RotateVerticesAroundPoint(int[] faceIds, Vector3 position, Quaternion rotation)
         {
             var pos = new double[] { position.x, position.y, position.z };
             var quat = new double[] { rotation.x, rotation.y, rotation.z, rotation.w };
             rotate_faces_around_point(_manifold, faceIds.Length, faceIds, pos, quat);
         }
-        */
+        
         public void MoveFacesAlongVector(int[] faceIds, double[] direction)
         {
             move_faces_along_vector(_manifold, faceIds.Length, faceIds, direction);
@@ -334,6 +334,22 @@ namespace Assets.GEL
             foreach (int vertexId in vertices)
             {
                 res.Add(vertexId, VertexPosition(vertexId));
+            }
+            return res;
+        }
+
+        public Dictionary<int, Vector3> GetVertexPositionsFromFaces(List<int> faceIds)
+        {
+            Dictionary<int, Vector3> res = new Dictionary<int, Vector3>();
+
+            foreach (int faceId in faceIds)
+            {
+                HashSet<int> vertices = GetVertexIds(faceId);
+
+                foreach (int vertexId in vertices) if (!res.ContainsKey(vertexId))
+                {
+                    res.Add(vertexId, VertexPosition(vertexId));
+                }
             }
             return res;
         }

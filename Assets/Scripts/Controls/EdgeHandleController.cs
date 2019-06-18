@@ -45,8 +45,11 @@ namespace Controls
         {
             Locked = !Locked;
             _hoverHighlight.enableOverrideColor = Locked;
-            _meshFilter.mesh = Locked ? Meshes[1] : Meshes[0]; 
-            _hoverHighlight.UpdateMaterialColor();
+            if (_meshFilter != null)
+            {
+                _meshFilter.mesh = Locked ? Meshes[1] : Meshes[0];
+                _hoverHighlight.UpdateMaterialColor();
+            }
         }
 
         public override void ChangeInteraction(InteractionMode mode) {}

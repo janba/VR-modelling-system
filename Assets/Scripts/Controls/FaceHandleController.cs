@@ -35,6 +35,7 @@ namespace Controls
         public bool IsDragged = false;
         private Vector3 initialControllerOffset;
         private Dictionary<int, Vector3> initialVertexPositions;
+        private Dictionary<int, Vector3> extrudedVertexPositions;
 
         public List<EdgeHandleController> ConnectedLatches = new List<EdgeHandleController>();
 
@@ -54,6 +55,7 @@ namespace Controls
 
         private float distanceToLowestVertex;
         private bool isExtruding = false;
+        private bool planeSnap = false;
 
         private List<AdjacentLockedFaces> selectedFaceList;
         private Quaternion lastRotation;
@@ -95,72 +97,136 @@ namespace Controls
             Vector3 right_ctrl_pt = GameObject.Find("RightHandAnchor").transform.position;
             float dist_left_ctrl = (10.0f * (left_ctrl_pt - transform.position)).sqrMagnitude;
             float dist_right_ctrl = (10.0f * (right_ctrl_pt - transform.position)).sqrMagnitude;
-            float sz = 0.01f + 0.09f / (Mathf.Min(dist_left_ctrl,dist_right_ctrl) + 1.0f);
+            float sz = 0.01f + 0.09f / (Mathf.Min(dist_left_ctrl, dist_right_ctrl) + 1.0f);
             transform.localScale = new Vector3(sz, sz, sz);
+
 
             if (IsDragged)
             {
+                if (!isExtruding && extrudingFaces.Count == 1)
+                {
+                    ControlsManager.Instance.updateAdjacentFaceHandles(AssociatedFaceID);
+                }
+
                 Vector3 controllerPosInLocalSpace = transform.parent.worldToLocalMatrix.MultiplyPoint(_controllerCollider.transform.position);
                 var move_from_initial_pos = controllerPosInLocalSpace - initialControllerPosInLocalSpace;
                 GrabControl gc = _controller as GrabControl;
+                GrabControl leftGrabControl = GameObject.Find("leftGrabControl").GetComponent<GrabControl>();
+                GrabControl rightGrabControl = GameObject.Find("rightGrabControl").GetComponent<GrabControl>();
 
-                if (!isExtruding)
+                if (leftGrabControl.collidedFaceHandle != null && leftGrabControl.HandState.ToString().Equals("TOUCHING") && !OVRInput.Get(OVRInput.Touch.Any, OVRInput.Controller.LTouch))
                 {
-                    if (move_from_initial_pos.magnitude > SNAP_DISTANCE)
+                    
+                    hideMeasuringBands();
+                    //destroyMeasuringBands();
+
+                    Vector3 faceNormal = Extrudable._manifold.GetFaceNormal(leftGrabControl.collidedFaceHandle.AssociatedFaceID);
+                    Vector3 facePoint = Extrudable._manifold.GetCenter(leftGrabControl.collidedFaceHandle.AssociatedFaceID);
+
+                    foreach (KeyValuePair<int, Vector3> vertex in Extrudable._manifold.GetVertexPositionsFromFace(AssociatedFaceID))
                     {
-                        ControlsManager.Instance.SetVertexPositionsById(initialVertexPositions);
-                        Extrudable.StartExtrusion(extrudingFaces.ToArray());
-                        isExtruding = true;
+                        Extrudable.MoveVertexAlongVector(
+                        vertex.Key,
+                        pointToPlaneVector(faceNormal, facePoint, Extrudable._manifold.VertexPosition(vertex.Key)));
 
-                        if (extrudingFaces.Count() == 1)  // multiple faces ???
-                        {
-                            initializeMeasuringBands();
-                        }
-
-                        if (gc)
-                        {
-                            StartCoroutine(Buzz(gc.Controller));
-                        }
                     }
-                }
+                    planeSnap = true;
+                    ControlsManager.Instance.Extrudable.rebuild = true;
 
-                if (OVRInput.Get(OVRInput.NearTouch.PrimaryThumbButtons, gc.Controller) && extrudingFaces.Count() == 1)
+                }
+                else if (rightGrabControl.collidedFaceHandle != null && rightGrabControl.HandState.ToString().Equals("TOUCHING") && !OVRInput.Get(OVRInput.Touch.Any, OVRInput.Controller.RTouch))
                 {
-                    tickState = true;
+
+                    hideMeasuringBands();
+                    //destroyMeasuringBands();
+
+                    Vector3 faceNormal = Extrudable._manifold.GetFaceNormal(rightGrabControl.collidedFaceHandle.AssociatedFaceID);
+                    Vector3 facePoint = Extrudable._manifold.GetCenter(rightGrabControl.collidedFaceHandle.AssociatedFaceID);
+
+                    foreach (KeyValuePair<int, Vector3> vertex in Extrudable._manifold.GetVertexPositionsFromFace(AssociatedFaceID))
+                    {
+                        Extrudable.MoveVertexAlongVector(
+                        vertex.Key,
+                        pointToPlaneVector(faceNormal, facePoint, Extrudable._manifold.VertexPosition(vertex.Key)));
+
+                    }
+                    planeSnap = true;
+                    ControlsManager.Instance.Extrudable.rebuild = true;
                 }
                 else
                 {
-                    tickState = false;
-                }
-
-                transform.localPosition = controllerPosInLocalSpace - initialControllerOffset;
-                var translate_vector = transform.localPosition;
-
-                var norm = Extrudable.GetFaceNormal(AssociatedFaceID);
-
-                if (translateSnap && isExtruding)
-                {
-                    float d = Vector3.Dot(norm, move_from_initial_pos);
-                    if ((move_from_initial_pos - d * norm).magnitude > SNAP_DISTANCE)
+                    planeSnap = false;
+                    if (!isExtruding)
                     {
-                        translateSnap = false;
-                        destroyMeasuringBands();
-                       // GrabControl gc = _controller as GrabControl;
-                        if (gc)
+                        if (move_from_initial_pos.magnitude > SNAP_DISTANCE)
                         {
-                            StartCoroutine(Buzz(gc.Controller));
+                            ControlsManager.Instance.SetVertexPositionsById(initialVertexPositions);
+                            Extrudable.StartExtrusion(extrudingFaces.ToArray());
+                            isExtruding = true;
+                            //if (extrudingFaces.Count() == 1)  // multiple faces ???
+                            //{
+                            initializeMeasuringBands();
+                            //extrudedVertexPositions = Extrudable._manifold.GetVertexPositionsFromFaces(new List<int> { AssociatedFaceID });
+                            extrudedVertexPositions = Extrudable._manifold.GetVertexPositionsFromFaces(extrudingFaces);
+                            //}
+
+                            if (gc)
+                            {
+                                StartCoroutine(Buzz(gc.Controller));
+                            }
                         }
                     }
-                }
-                    
-                Extrudable.MoveTo(
-                    AssociatedFaceID,
-                    extrudingFaces.ToArray(),
-                    translate_vector, translateSnap && isExtruding, tickState && angleSnap);
 
-                if (isExtruding && translateSnap && angleSnap && extrudingFaces.Count() == 1)
-                {
-                    if (tickState)
+                    //if (OVRInput.Get(OVRInput.NearTouch.PrimaryThumbButtons, gc.Controller) && extrudingFaces.Count() == 1)
+                    if (OVRInput.Get(OVRInput.NearTouch.PrimaryThumbButtons, gc.Controller))
+
+                    {
+                        tickState = true;
+                    }
+                    else
+                    {
+                        tickState = false;
+                    }
+
+                    transform.localPosition = controllerPosInLocalSpace - initialControllerOffset;
+                    var translate_vector = transform.localPosition;
+
+                    var norm = Extrudable.GetFaceNormal(AssociatedFaceID);
+
+                    if (translateSnap && isExtruding)
+                    {
+                        float d = Vector3.Dot(norm, move_from_initial_pos);
+                        if ((move_from_initial_pos - d * norm).magnitude > SNAP_DISTANCE)
+                        {
+                            translateSnap = false;
+                            destroyMeasuringBands();
+                            // GrabControl gc = _controller as GrabControl;
+                            if (gc)
+                            {
+                                StartCoroutine(Buzz(gc.Controller));
+                            }
+                        }
+                    }
+
+                    if (!isExtruding)
+                    {
+                        ControlsManager.Instance.SetVertexPositionsById(initialVertexPositions);
+                    }
+                    else if (extrudedVertexPositions != null)
+                    {
+                        ControlsManager.Instance.SetVertexPositionsById(extrudedVertexPositions);
+                    }
+                    
+
+                    Extrudable.MoveTo(
+                        AssociatedFaceID,
+                        extrudingFaces.ToArray(),
+                        translate_vector, translateSnap && isExtruding, tickState && angleSnap);
+
+                    //if (isExtruding && translateSnap && angleSnap && extrudingFaces.Count() == 1)
+                    if (isExtruding && translateSnap && angleSnap)
+                    {
+                        if (tickState)
                     {
                         float extrusionLength = (Extrudable._manifold.GetCenter(AssociatedFaceID) - initialFaceCenter).magnitude;
                         updateMeasuringBands(Mathf.Round(extrusionLength * 50) / 50);
@@ -169,43 +235,47 @@ namespace Controls
                     {
                         updateMeasuringBands(Vector3.Dot(move_from_initial_pos, norm));
                     }
-                }
+                    }
 
-                // change between previous rotation and current rotation
-                var controllerRotInLocalSpace = GetControllerRotationInLocalSpace();
-                if (angleSnap)
-                {
-                    // Compute the rotation from the original controller orientation to the present.
-                    // If that rotation is greater than 10 degrees, snapping is turned off, and the face orientation
-                    // tracks the hand´s orientation.
-                    var fullRotation = controllerRotInLocalSpace * Quaternion.Inverse(firstRotation);
-                    float angle = 0.0f;
-                    Vector3 axis = Vector3.zero;
-                    fullRotation.ToAngleAxis(out angle, out axis);
-                    if (angle > SNAP_ANGLE)
+                    // change between previous rotation and current rotation
+                    var controllerRotInLocalSpace = GetControllerRotationInLocalSpace();
+                    if (angleSnap)
                     {
-                        angleSnap = false;
-                        destroyMeasuringBands();
-                        //GrabControl gc = _controller as GrabControl;
-                        if (gc)
+                        // Compute the rotation from the original controller orientation to the present.
+                        // If that rotation is greater than 10 degrees, snapping is turned off, and the face orientation
+                        // tracks the hand´s orientation.
+                        var fullRotation = controllerRotInLocalSpace * Quaternion.Inverse(firstRotation);
+                        float angle = 0.0f;
+                        Vector3 axis = Vector3.zero;
+                        fullRotation.ToAngleAxis(out angle, out axis);
+                        if (angle > SNAP_ANGLE)
                         {
-                            StartCoroutine(Buzz(gc.Controller));
+                            angleSnap = false;
+                            destroyMeasuringBands();
+                            //GrabControl gc = _controller as GrabControl;
+                            if (gc)
+                            {
+                                StartCoroutine(Buzz(gc.Controller));
+                            }
                         }
                     }
-                }
-                /*
-                if(!angleSnap)
-                {
-                    var deltaRotation = controllerRotInLocalSpace * Quaternion.Inverse(lastRotation);
-                    Extrudable.RotateFaceAroundPoint(extrudingFaces.ToArray(),
-                        transform.localPosition, deltaRotation);
-                }
-                */
-                lastRotation = GetControllerRotationInLocalSpace();
-                ControlsManager.Instance.Extrudable.rebuild = true;
-                if (extrudingFaces.Count > 1)
-                {
-                    controlsManager.UpdateFacesAndSelectedEdges(extrudingFaces);
+
+                    if (!angleSnap)
+                    {
+                        var deltaRotation = controllerRotInLocalSpace * Quaternion.Inverse(firstRotation);
+                        Extrudable.RotateFaceAroundPoint(extrudingFaces.ToArray(),
+                            transform.localPosition, deltaRotation);
+
+                    }
+
+                    //lastRotation = GetControllerRotationInLocalSpace();
+                    ControlsManager.Instance.Extrudable.rebuild = true;
+                    /*
+                    if (extrudingFaces.Count > 1)
+                    {
+                        controlsManager.UpdateFacesAndSelectedEdges(new List<int> { AssociatedFaceID});
+                    }
+                    */
                 }
             }
         }
@@ -260,6 +330,21 @@ namespace Controls
 
         public override void Interact()
         {
+            // pointToPlaneVectorTest
+            /*
+            Vector3 nTest = new Vector3(1f, 1f, 0f);
+            Vector3 pvTest = new Vector3(2f, 2f, 0f);
+
+            Vector3 pointTest = new Vector3(1f, 5f, 0f);
+            Vector3 pointTest2 = new Vector3(1f, 5f, 1f);
+            Vector3 pointTest3 = new Vector3(6f, 3f, 0f);
+            Vector3 pointTest4 = new Vector3(6f, 3f, 1f);
+
+            Debug.Log(pointToPlaneVector(nTest, pvTest, pointTest).ToVector3f().ToString());
+            Debug.Log(pointToPlaneVector(nTest, pvTest, pointTest2).ToVector3f().ToString());
+            Debug.Log(pointToPlaneVector(nTest, pvTest, pointTest3).ToVector3f().ToString());
+            Debug.Log(pointToPlaneVector(nTest, pvTest, pointTest4).ToVector3f().ToString());
+            */
 
             initialPosition = transform.localPosition;
             initialRotation = transform.localRotation;
@@ -289,10 +374,11 @@ namespace Controls
                 ControlsManager.Instance.DeleteControlsExceptSelectedFaces(new List<int> { AssociatedFaceID });
             }
             else
-            { 
-            //ControlsManager.Instance.DeleteControlsExceptSelectedFaces(extrudingFaces);
-            ControlsManager.Instance.DeleteControlsExceptFaces(initialManifold.GetAdjacentFaceIdsAndEdgeCenters(AssociatedFaceID).faceId, AssociatedFaceID);
-            }   
+            {
+                //ControlsManager.Instance.DeleteControlsExceptSelectedFaces(extrudingFaces);
+                //ControlsManager.Instance.DeleteControlsExceptFaces(initialManifold.GetAdjacentFaceIdsAndEdgeCenters(AssociatedFaceID).faceId, AssociatedFaceID);
+                ControlsManager.Instance.DeleteControlsExceptFaces(new int[0], AssociatedFaceID);
+            }
 
             ControlsManager.FireUndoStartEvent(mesh, this, initialPosition, initialRotation);
         }
@@ -302,18 +388,19 @@ namespace Controls
 
             if (IsDragged)
             {
+
                 destroyMeasuringBands();
                 IsDragged = false;
 
-                if (collision == false)
+                if (collision == false && !planeSnap)
                 {
                     Extrudable.MoveTo(
                         AssociatedFaceID,
                         extrudingFaces.ToArray(),
-                        transform.localPosition, translateSnap, tickState);
+                        transform.localPosition, translateSnap && isExtruding, tickState);
 
                 }
-                else
+                else if (!planeSnap)
                 /*else if (extrudingFaces.Count == 1)*/ // yes/no maybe
                 {
 
@@ -331,7 +418,7 @@ namespace Controls
                                 Extrudable.ChangeManifold(initialManifold.Copy());
 
                                 if (matches.Length == 6)
-                                {
+                                {                               
                                     Extrudable.bridgeFaces(AssociatedFaceID, collidedFaceID, new int[] { matches[0], matches[1], matches[2] }, new int[] { matches[3], matches[4], matches[5] }, 3);
                                 }
                                 else if (matches.Length == 8)
@@ -346,16 +433,28 @@ namespace Controls
 
                 extrudingFaces = new List<int>(); // create new list (may be referenced by other hand)
 
-                if (Extrudable.isValidMesh())
-                {
+                int collapsed = Extrudable.CollapseShortEdges(0.015f);
+                Extrudable.TriangulateAndDrawManifold(); // needed for collision detection in isValidMesh
 
-                    int collapsed = Extrudable.CollapseShortEdges(0.01);
-                    if (collapsed > 0)
+                if (collapsed > 0)
+                {
+                    if (Extrudable.isValidMesh())
                     {
                         ControlsManager.Instance.DestroyInvalidObjects();
+                        ControlsManager.Instance.Extrudable.rebuild = true;
+                        //ControlsManager.Instance.UpdateControls();
+                        ControlsManager.FireUndoEndEvent(mesh, this, initialPosition, initialRotation);
                     }
-
+                    else
+                    {
+                        Extrudable.ChangeManifold(initialManifold);
+                    }
+                }
+                else if (Extrudable.isValidMesh())
+                {
+                    //ControlsManager.Instance.DestroyInvalidObjects();
                     ControlsManager.Instance.Extrudable.rebuild = true;
+                    //ControlsManager.Instance.UpdateControls();
                     ControlsManager.FireUndoEndEvent(mesh, this, initialPosition, initialRotation);
                 }
                 else
@@ -363,6 +462,7 @@ namespace Controls
                     Extrudable.ChangeManifold(initialManifold);
                 }
             }
+            planeSnap = false;
         }
 
         public void UpdatePositionAndRotation(Vector3 center, Vector3 normal, Vector3 edge)
@@ -617,8 +717,8 @@ namespace Controls
             texture.filterMode = FilterMode.Point;
 
             int i = 0;
-            foreach (int faceid in Extrudable._manifold.GetAdjacentFaceIdsAndEdgeCenters(AssociatedFaceID).faceId) // maybe copy the first gameobject instead of intializing 4 objects???
-            {
+            foreach (int faceid in Extrudable._manifold.GetAdjacentFaceIdsAndEdgeCenters(AssociatedFaceID).faceId) if (!extrudingFaces.Contains(faceid)) // maybe copy the first gameobject instead of intializing 4 objects???
+                {
                 GameObject measuringBand = new GameObject("measuringBand" + i);
                 measuringBand.AddComponent<MeshRenderer>();
                 MeshFilter meshFilter = measuringBand.AddComponent<MeshFilter>();
@@ -668,21 +768,27 @@ namespace Controls
 
         public void updateMeasuringBands(float extrusionLength)
         {
+            if (measuringBands.Count() > 0) {
 
-            Vector2[] uvs = new Vector2[] { new Vector2(0f, 0f), new Vector2(0f, 1f), new Vector2(extrusionLength * 5f, 1f), new Vector2(extrusionLength * 5f, 0f) };
+                Vector2[] uvs = new Vector2[] { new Vector2(0f, 0f), new Vector2(0f, 1f), new Vector2(extrusionLength * 5f, 1f), new Vector2(extrusionLength * 5f, 0f) };
 
-            int i = 0;
-            foreach (int faceid in Extrudable._manifold.GetAdjacentFaceIdsAndEdgeCenters(AssociatedFaceID).faceId)
-            {
-                var faceVertices = Extrudable._manifold.GetVertexPositionsFromFace(faceid).Values.ToList();
-                for(int x = 0; x < faceVertices.Count(); x++)
-                {
-                    faceVertices[x] = faceVertices[x] + Vector3.Scale(Extrudable._manifold.GetFaceNormal(faceid), new Vector3(0.0001f, 0.0001f,  0.0001f));
+                int i = 0;
+                foreach (int faceid in Extrudable._manifold.GetAdjacentFaceIdsAndEdgeCenters(AssociatedFaceID).faceId) if (!extrudingFaces.Contains(faceid))
+                    {
+                    var faceVertices = Extrudable._manifold.GetVertexPositionsFromFace(faceid).Values.ToList();
+                    for (int x = 0; x < faceVertices.Count(); x++)
+                    {
+                        faceVertices[x] = faceVertices[x] + Vector3.Scale(Extrudable._manifold.GetFaceNormal(faceid), new Vector3(0.0001f, 0.0001f, 0.0001f));
+                    }
+
+                    if (measuringBands[i] != null)
+                    {
+                        measuringBands[i].GetComponent<MeshRenderer>().enabled = true;
+                        measuringBands[i].GetComponent<MeshFilter>().mesh.vertices = new Vector3[] { faceVertices[0], faceVertices[1], faceVertices[2], faceVertices[3] }; // garbage collection
+                        measuringBands[i].GetComponent<MeshFilter>().mesh.uv = uvs;
+                    }
+                    i++;
                 }
-                measuringBands[i].GetComponent<MeshFilter>().mesh.vertices = new Vector3[] { faceVertices[0], faceVertices[1], faceVertices[2], faceVertices[3] }; // garbage collection
-                measuringBands[i].GetComponent<MeshFilter>().mesh.uv = uvs;
-
-                i++;
             }
         }
 
@@ -692,6 +798,29 @@ namespace Controls
             {
                 Destroy(measuringBand);
             }
+        }
+
+        public void hideMeasuringBands()
+        {
+            foreach (GameObject measuringBand in measuringBands)
+            {
+                if (measuringBand != null)
+                {
+                    measuringBand.GetComponent<MeshRenderer>().enabled = false;
+                }
+            }
+        }
+
+        public Vector3 pointToPlaneVector(Vector3 planeNorm, Vector3 planePos, Vector3 vertexPos)
+        {
+            float sb, sn, sd;
+
+            sn = -Vector3.Dot(planeNorm, (vertexPos - planePos));
+            sd = Vector3.Dot(planeNorm, planeNorm);
+            sb = sn / sd;
+
+            Vector3 result = vertexPos + sb * planeNorm;
+            return result - vertexPos;
         }
 
     }
