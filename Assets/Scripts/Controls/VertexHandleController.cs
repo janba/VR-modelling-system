@@ -96,7 +96,6 @@ namespace Controls
 
                     if (leftGrabControl.collidedVertexHandle != null && leftGrabControl.HandState.ToString().Equals("TOUCHING") && !OVRInput.Get(OVRInput.Touch.Any, OVRInput.Controller.LTouch))
                     {
-                        Debug.Log("snapping to vertex: " + leftGrabControl.collidedVertexHandle.AssociatedVertexID);                    
 
                         Vector3 distanceVector = initialPosition - leftGrabControl.collidedVertexHandle.transform.localPosition;
                         Vector3 translationVector = new Vector3(0f, 0f, 0f);
@@ -117,7 +116,6 @@ namespace Controls
                     }
                     else if (rightGrabControl.collidedVertexHandle != null && rightGrabControl.HandState.ToString().Equals("TOUCHING") && !OVRInput.Get(OVRInput.Touch.Any, OVRInput.Controller.RTouch))
                     {
-                        Debug.Log("snapping to vertex: " + rightGrabControl.collidedVertexHandle.AssociatedVertexID);
 
                         Vector3 distanceVector = initialPosition - rightGrabControl.collidedVertexHandle.transform.localPosition;
                         Vector3 translationVector = new Vector3(0f, 0f, 0f);
@@ -260,7 +258,7 @@ namespace Controls
                 {
                     IsDragged = false;
 
-                    int collapsed = Extrudable.CollapseShortEdges(0.015f);
+                    int collapsed = Extrudable.CollapseShortEdges(0.019f);
                     if (collapsed > 0)
                     {
                         Extrudable.TriangulateAndDrawManifold();

@@ -433,7 +433,7 @@ namespace Controls
 
                 extrudingFaces = new List<int>(); // create new list (may be referenced by other hand)
 
-                int collapsed = Extrudable.CollapseShortEdges(0.015f);
+                int collapsed = Extrudable.CollapseShortEdges(0.019f);
                 Extrudable.TriangulateAndDrawManifold(); // needed for collision detection in isValidMesh
 
                 if (collapsed > 0)
