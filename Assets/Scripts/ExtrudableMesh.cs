@@ -141,9 +141,10 @@ public class ExtrudableMesh : MonoBehaviour
         
         UndoManager.Instance.undoActions.Clear();
         // add initial state to undo list
+        UndoManager.Instance.position = 0;
         UndoManager.Instance.OnUndoStartAction(null, null, Vector3.zero, Quaternion.identity);
         UndoManager.Instance.OnUndoEndAction(null, null, Vector3.zero, Quaternion.identity);
-        UndoManager.Instance.position = 0;
+
     }
 
     public void UpdateMesh()

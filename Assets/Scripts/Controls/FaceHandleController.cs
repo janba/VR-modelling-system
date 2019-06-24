@@ -161,6 +161,7 @@ namespace Controls
                         if (move_from_initial_pos.magnitude > SNAP_DISTANCE)
                         {
                             ControlsManager.Instance.SetVertexPositionsById(initialVertexPositions);
+                            ControlsManager.Instance.updateAdjacentFaceHandles(AssociatedFaceID);
                             Extrudable.StartExtrusion(extrudingFaces.ToArray());
                             isExtruding = true;
                             //if (extrudingFaces.Count() == 1)  // multiple faces ???

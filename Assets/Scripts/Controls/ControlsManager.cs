@@ -141,14 +141,17 @@ namespace Controls
         {
             foreach (var fhc in _faceHandles)
             {
-                Destroy(fhc.Value.gameObject);
+                //Destroy(fhc.Value.gameObject);
+                fhc.Value.gameObject.SetActive(false);
             }
-            _faceHandles.Clear();
+            //_faceHandles.Clear();
             foreach (var l in _edgeHandles)
             {
-                Destroy(l.Value.gameObject);
+                //Destroy(l.Value.gameObject);
+                l.Value.gameObject.SetActive(false);
+
             }
-            _edgeHandles.Clear();
+            //_edgeHandles.Clear();
         }
 
         public FaceHandleController GetHandle(int faceId)
@@ -207,11 +210,12 @@ namespace Controls
 
                 foreach (var latch in latchesToRemove)
                 {
-                    _edgeHandles.Remove(latch.AssociatedEdgeID);
-                    handleController.ConnectedLatches.Remove(latch);
-                    GetHandle(latch.GetComponent<EdgeHandleController>().GetOtherFace(handleController.AssociatedFaceID)).ConnectedLatches.Remove(latch);
+                    //_edgeHandles.Remove(latch.AssociatedEdgeID);
+                    //handleController.ConnectedLatches.Remove(latch);
+                    //GetHandle(latch.GetComponent<EdgeHandleController>().GetOtherFace(handleController.AssociatedFaceID)).ConnectedLatches.Remove(latch);
 
-                    Destroy(latch.gameObject);
+                    //Destroy(latch.gameObject);
+                    latch.gameObject.SetActive(false);
                 }
             }
         }
@@ -255,6 +259,7 @@ namespace Controls
                     var normal = manifold.GetFaceNormal(handleFace);
                     var edgeNormal = manifold.GetFirstEdgeDirection(handleFace);
                     faceHandleController.Value.UpdatePositionAndRotation(center, normal, edgeNormal);
+                    faceHandleController.Value.gameObject.SetActive(true);
                 }
 
                 var adjacentFaces = manifold.GetAdjacentFaceIdsAndEdgeCenters(handleFace);
@@ -272,6 +277,8 @@ namespace Controls
 
                         latch.UpdatePositionAndRotation(edgeCenter, adjacentFaces.edgeNormals[j],
                             adjacentFaceNormal + normal);
+                        latch.gameObject.SetActive(true);
+
                     }
                 }
             }
@@ -299,6 +306,7 @@ namespace Controls
                     Quaternion handleRotation = Quaternion.LookRotation(-vertexNormal);
                     vertexHandleController.Value.transform.localRotation = handleRotation;
                 }
+                vertexHandleController.Value.gameObject.SetActive(true);
             }
 
             for (int i = 0; i < vertexIds.Length; i++)
@@ -506,15 +514,17 @@ namespace Controls
             foreach (var v in toDeleteV)
             {
                 var obj = _vertexHandles[v];
-                _vertexHandles.Remove(v);
-                Destroy(obj.gameObject);
+                //_vertexHandles.Remove(v);
+                //Destroy(obj.gameObject);
+                obj.gameObject.SetActive(false);
             }
             var toDeleteF = new List<int>(_faceHandles.Keys).FindAll(key => !extrudingFaces.Contains(key));
             foreach (var f in toDeleteF)
             {
                 var obj = _faceHandles[f];
-                _faceHandles.Remove(f);
-                Destroy(obj.gameObject);
+                //_faceHandles.Remove(f);
+                //Destroy(obj.gameObject);
+                obj.gameObject.SetActive(false);
             }
             var toDeleteE = new List<int>(_edgeHandles.Keys);
             foreach (var e in toDeleteE)
@@ -526,11 +536,12 @@ namespace Controls
                     FaceHandleController fhc;
                     if (_faceHandles.TryGetValue(face, out fhc))
                     {
-                        fhc.ConnectedLatches.Remove(obj);
+                        //fhc.ConnectedLatches.Remove(obj);
                     }
                 }
-                _edgeHandles.Remove(e);
-                Destroy(obj.gameObject);
+                //_edgeHandles.Remove(e);
+                //Destroy(obj.gameObject);
+                obj.gameObject.SetActive(false);
             }
         }
 
@@ -540,8 +551,9 @@ namespace Controls
             foreach (var v in toDeleteV)
             {
                 var obj = _vertexHandles[v];
-                _vertexHandles.Remove(v);
-                Destroy(obj.gameObject);
+                //_vertexHandles.Remove(v);
+                //Destroy(obj.gameObject);
+                obj.gameObject.SetActive(false);
             }
             var toDeleteF = new List<int>(_faceHandles.Keys).FindAll(key => extrudingFaces.Contains(key));
             foreach (var f in toDeleteF)
@@ -549,8 +561,9 @@ namespace Controls
                 if (f != faceId)
                 {
                     var obj = _faceHandles[f];
-                    _faceHandles.Remove(f);
-                    Destroy(obj.gameObject);
+                    //_faceHandles.Remove(f);
+                    //Destroy(obj.gameObject);
+                    obj.gameObject.SetActive(false);
                 }
             }
             var toDeleteE = new List<int>(_edgeHandles.Keys);
@@ -563,11 +576,12 @@ namespace Controls
                     FaceHandleController fhc;
                     if (_faceHandles.TryGetValue(face, out fhc))
                     {
-                        fhc.ConnectedLatches.Remove(obj);
+                        //fhc.ConnectedLatches.Remove(obj);
                     }
                 }
-                _edgeHandles.Remove(e);
-                Destroy(obj.gameObject);
+                //_edgeHandles.Remove(e);
+                //Destroy(obj.gameObject);
+                obj.gameObject.SetActive(false);
             }
         }
 
@@ -577,15 +591,17 @@ namespace Controls
             foreach (var v in toDeleteV)
             {
                 var obj = _vertexHandles[v];
-                _vertexHandles.Remove(v);
-                Destroy(obj.gameObject);
+                //_vertexHandles.Remove(v);
+                //Destroy(obj.gameObject);
+                obj.gameObject.SetActive(false);
             }
             var toDeleteF = new List<int>(_faceHandles.Keys);
             foreach (var f in toDeleteF)
             {
                 var obj = _faceHandles[f];
-                _faceHandles.Remove(f);
-                Destroy(obj.gameObject);
+                //_faceHandles.Remove(f);
+                //Destroy(obj.gameObject);
+                obj.gameObject.SetActive(false);
             }
             var toDeleteE = new List<int>(_edgeHandles.Keys);
             foreach (var e in toDeleteE)
@@ -597,11 +613,13 @@ namespace Controls
                     FaceHandleController fhc;
                     if (_faceHandles.TryGetValue(face, out fhc))
                     {
-                        fhc.ConnectedLatches.Remove(obj);
+                        //fhc.ConnectedLatches.Remove(obj);
                     }
                 }
-                _edgeHandles.Remove(e);
-                Destroy(obj.gameObject);
+                //_edgeHandles.Remove(e);
+                //Destroy(obj.gameObject);
+                obj.gameObject.SetActive(false);
+
             }
         }
 
@@ -611,8 +629,9 @@ namespace Controls
             foreach (var f in toDeleteF)
             {
                 var obj = _faceHandles[f];
-                _faceHandles.Remove(f);
-                Destroy(obj.gameObject);
+                //_faceHandles.Remove(f);
+                //Destroy(obj.gameObject);
+                obj.gameObject.SetActive(false);
             }
             var toDeleteE = new List<int>(_edgeHandles.Keys);
             foreach (var e in toDeleteE)
@@ -624,11 +643,13 @@ namespace Controls
                     FaceHandleController fhc;
                     if (_faceHandles.TryGetValue(face, out fhc))
                     {
-                        fhc.ConnectedLatches.Remove(obj);
+                        //fhc.ConnectedLatches.Remove(obj);
                     }
                 }
-                _edgeHandles.Remove(e);
-                Destroy(obj.gameObject);
+                //_edgeHandles.Remove(e);
+                //Destroy(obj.gameObject);
+                obj.gameObject.SetActive(false);
+
             }
         }
 
