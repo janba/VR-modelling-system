@@ -421,10 +421,12 @@ namespace Controls
                                 if (matches.Length == 6)
                                 {                               
                                     Extrudable.bridgeFaces(AssociatedFaceID, collidedFaceID, new int[] { matches[0], matches[1], matches[2] }, new int[] { matches[3], matches[4], matches[5] }, 3);
+                                    ControlsManager.Instance.UpdateControls();
                                 }
                                 else if (matches.Length == 8)
                                 {
                                     Extrudable.bridgeFaces(AssociatedFaceID, collidedFaceID, new int[] { matches[0], matches[1], matches[2], matches[3] }, new int[] { matches[4], matches[5], matches[6], matches[7] }, 4);
+                                    ControlsManager.Instance.UpdateControls();
                                 }
                             }
                         }

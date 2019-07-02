@@ -101,14 +101,14 @@ public class UndoManager : MonoBehaviour
 	public void OnUndoStartAction(Mesh handleMesh, IInteractableObject interactableObject, Vector3 initialPosition,
 		Quaternion initialRotation)
 	{
-		while (position < undoActions.Count - 1)
+        while (position < undoActions.Count - 1)
 		{
 			undoActions.RemoveAt(undoActions.Count - 1); // todo replace with if + RemoveRange 
 		}
 
         if (position == maxSteps)
         {
-            undoActions.RemoveAt(0);
+            undoActions.RemoveAt(0); // argument out of range sometimes.
             position--; // part of quick fix 
         }
         else
@@ -137,8 +137,8 @@ public class UndoManager : MonoBehaviour
         UpdateVisuals();
     }
 
-	public void OnUndoEndAction(Mesh handleMesh, IInteractableObject interactableObject, Vector3 initialPosition, Quaternion initialRotation)
-	{        
+    public void OnUndoEndAction(Mesh handleMesh, IInteractableObject interactableObject, Vector3 initialPosition, Quaternion initialRotation)
+	{
         Transform t = interactableObject != null ? interactableObject.transform : transform;
 		//int index = Mathf.Max(0, undoActions.Count - 1);
         tempData.positionFinal = t.localPosition;
