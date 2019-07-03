@@ -194,7 +194,7 @@ namespace Controls
 
                     var norm = Extrudable.GetFaceNormal(AssociatedFaceID);
 
-                    if (translateSnap && isExtruding)
+                    if (translateSnap && isExtruding && !tickState)
                     {
                         float d = Vector3.Dot(norm, move_from_initial_pos);
                         if ((move_from_initial_pos - d * norm).magnitude > SNAP_DISTANCE)
@@ -240,7 +240,7 @@ namespace Controls
 
                     // change between previous rotation and current rotation
                     var controllerRotInLocalSpace = GetControllerRotationInLocalSpace();
-                    if (angleSnap)
+                    if (angleSnap && !tickState)
                     {
                         // Compute the rotation from the original controller orientation to the present.
                         // If that rotation is greater than 10 degrees, snapping is turned off, and the face orientation
