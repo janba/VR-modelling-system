@@ -8,4 +8,4 @@ Originally, the system was developed by Valerii Kamalov as part of his MSc thesi
 
 ## Licensing
 
-The scripts have been placed under the GPLv3 license which is included in the Assests/Scripts library. There is little point to applying a license to the whole project and this might potentially be problematic since it included the GEL code which is under a different license.
+The project has been placed under the GPLv3 license. However, the license does not pertain to GEL parts of which are included in binary form and parts of which are included in source form (src/PyGEL). The license pertains only to the scripts created for this particular project.
