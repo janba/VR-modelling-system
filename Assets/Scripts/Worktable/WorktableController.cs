@@ -12,6 +12,9 @@ public class WorktableController : MonoBehaviour
     //public Transform userBody;
     [SerializeField]
     private ExtrudableMesh _extrudableMesh;
+    
+    [SerializeField]
+    private MirrorMesh _mirrorMesh;
 
     //private Vector3 _offset = new Vector3(-0.2f, -0.4f, 0.1f);
     //private Vector3 _rotation = new Vector3(0f, 190f, 0f);
@@ -19,16 +22,19 @@ public class WorktableController : MonoBehaviour
     public Transform modellingObject;
 
     public bool enableMeshRotation = true;
+    private bool worktableActive = false;
 
     //[SerializeField]
     private WorktableController _worktableController;
+    private GameObject baseChild;
 
+    private OVRInput.Controller lController = OVRInput.Controller.LTouch;
     // Use this for initialization
     void Start()
     {
         //this.transform.position = userBody.position - _offset;
         //this.transform.rotation = Quaternion.Euler(_rotation);
-
+        baseChild = transform.GetChild(0).gameObject;
     }
 
     // Update is called once per frame
@@ -40,6 +46,28 @@ public class WorktableController : MonoBehaviour
             updateObjectRotation();
         }
 
+
+        //Show or hide worktable based on hand direction
+        Debug.DrawLine(ControlsManager.Instance.handCenters[0].position, ControlsManager.Instance.handCenters[0].position + OVRInput.GetLocalControllerRotation(lController) * Vector3.right, Color.red);
+
+        Debug.DrawLine(ControlsManager.Instance.handCenters[0].position, (Vector3.up * 10) + ControlsManager.Instance.handCenters[0].position);
+
+        if (Vector3.Dot(OVRInput.GetLocalControllerRotation(lController) * Vector3.right, Vector3.up) > 0.95f )
+        {
+            if (!worktableActive)
+            {
+                baseChild.SetActive(true);
+                worktableActive = true;
+                StartCoroutine(Grow(new Vector3(0.1f, 0.1f, 0.1f), new Vector3(2f, 2f, 2f)));
+            }
+            transform.position = ControlsManager.Instance.handCenters[0].position + Vector3.up*0.05f;  
+        }
+        else if (worktableActive)
+        {
+            worktableActive = false;
+            StartCoroutine(Grow(new Vector3(2f, 2f, 2f), new Vector3(0.1f, 0.1f, 0.1f)));
+            
+        }
         //if (Input.GetKeyDown("s"))
         //{
         //    //bool test = RefinementTestLoop(30, 40);
@@ -48,6 +76,30 @@ public class WorktableController : MonoBehaviour
         //    Debug.Log(test);
         //}
 
+    }
+
+    public IEnumerator Grow(Vector3 startScale, Vector3 endScale)
+    {
+        var elapsedTime = 0f;
+        var waitTime = 0.2f;
+
+        while (elapsedTime < waitTime)
+        {
+            transform.localScale = Vector3.Lerp(startScale, endScale, (elapsedTime / waitTime));
+            elapsedTime += Time.deltaTime;
+
+            // Yield here
+            yield return null;
+        }
+        // Make sure we got there
+        transform.localScale = endScale;
+
+        if (startScale.x > endScale.x)
+        {
+            baseChild.SetActive(false);
+        }
+
+        yield return null;
     }
 
     public void updateObjectRotation()
@@ -77,7 +129,13 @@ public class WorktableController : MonoBehaviour
     public bool LoadMesh(string filename)
     {
         Debug.Log("worktableController here... trying to load..." + " " + filename);
+
+
+#if UNITY_STANDALONE && !UNITY_EDITOR
+        filename = String.Format("Saved/{0}.obj", filename);
+#else
         filename = String.Format("Assets/Models/Saved/{0}.obj", filename);
+#endif
         _extrudableMesh._manifold = new Manifold();
         var manifold = new Manifold();
 
@@ -94,7 +152,12 @@ public class WorktableController : MonoBehaviour
 
     public bool SaveMesh(string fname)
     {
+#if UNITY_STANDALONE && !UNITY_EDITOR
+        string fileWithPath = String.Format("Saved/{0}.obj", fname);
+#else
         string fileWithPath = String.Format("Assets/Models/Saved/{0}.obj", fname);
+#endif
+
 
         bool saved = _extrudableMesh._manifold.SaveToOBJ(fileWithPath);
       
@@ -233,5 +296,17 @@ public class WorktableController : MonoBehaviour
         }
 
         return false;
+    }
+
+    public bool ToggleMirrorMesh() {
+        var newState = _mirrorMesh.ToggleMirroring();
+        _extrudableMesh.rebuild = true;
+        
+        return newState;
+    }
+
+    public void MergeMirror() {
+        _extrudableMesh.MergeWithManifold(_mirrorMesh.Manifold);
+        _mirrorMesh.ToggleMirroring();
     }
 }

@@ -54,11 +54,15 @@ namespace Controls
 
         private GameObject edgebar;
 
+        public GameObject lineObjectBP;
+        private GameObject lineObject;
+
         void Awake()
         {
             _hoverHighlight = GetComponent<HoverHighlight>();
             var meshFilter = GetComponent<MeshFilter>();
             mesh = meshFilter.sharedMesh;
+            
         }
 
         // Update is called once per frame
@@ -84,7 +88,7 @@ namespace Controls
 
                     Vector3 controllerPosInLocalSpace = transform.parent.worldToLocalMatrix.MultiplyPoint(_controllerCollider.transform.position);
                     Vector3 targetPos = controllerPosInLocalSpace - initialControllerOffset;
-                    targetPos.y = Mathf.Max(minDeltaY, targetPos.y);
+                    //targetPos.y = Mathf.Max(minDeltaY, targetPos.y); I don't know what this line was supposed to do, if something is broken in the futere maybe this is needed.
                     transform.localPosition = targetPos;
 
                     Extrudable.MoveVertexTo(
@@ -94,10 +98,12 @@ namespace Controls
                     GrabControl leftGrabControl = GameObject.Find("leftGrabControl").GetComponent<GrabControl>();
                     GrabControl rightGrabControl = GameObject.Find("rightGrabControl").GetComponent<GrabControl>();
 
+                    //SBS
                     if (leftGrabControl.collidedVertexHandle != null && leftGrabControl.HandState.ToString().Equals("TOUCHING") && !OVRInput.Get(OVRInput.Touch.Any, OVRInput.Controller.LTouch))
                     {
-
-                        Vector3 distanceVector = initialPosition - leftGrabControl.collidedVertexHandle.transform.localPosition;
+                        Matrix4x4 LtoW = leftGrabControl.collidedVertexHandle.transform.localToWorldMatrix;
+                        Vector3 touchPoint = leftGrabControl.collidedVertexHandle.transform.localPosition;
+                        Vector3 distanceVector = initialPosition - touchPoint ;
                         Vector3 translationVector = new Vector3(0f, 0f, 0f);
 
                         if (Mathf.Abs(distanceVector.x) >= Mathf.Abs(distanceVector.y) && Mathf.Abs(distanceVector.x) >= Mathf.Abs(distanceVector.z))
@@ -113,11 +119,13 @@ namespace Controls
                             AssociatedVertexID,
                             leftGrabControl.collidedVertexHandle.transform.localPosition + translationVector);
 
+                        Debug.Log(leftGrabControl.collidedVertexHandle.transform.position + "  :  " + leftGrabControl.collidedVertexHandle.transform.TransformPoint(touchPoint));
+                        EnableSBSLine(leftGrabControl.collidedVertexHandle.transform.localPosition, translationVector, leftGrabControl.collidedVertexHandle.transform.root.localToWorldMatrix);
                     }
                     else if (rightGrabControl.collidedVertexHandle != null && rightGrabControl.HandState.ToString().Equals("TOUCHING") && !OVRInput.Get(OVRInput.Touch.Any, OVRInput.Controller.RTouch))
                     {
-
-                        Vector3 distanceVector = initialPosition - rightGrabControl.collidedVertexHandle.transform.localPosition;
+                        Vector3 touchPoint = rightGrabControl.collidedVertexHandle.transform.localPosition;
+                        Vector3 distanceVector = initialPosition - touchPoint;
                         Vector3 translationVector = new Vector3(0f, 0f, 0f);
 
                         if (Mathf.Abs(distanceVector.x) >= Mathf.Abs(distanceVector.y) && Mathf.Abs(distanceVector.x) >= Mathf.Abs(distanceVector.z))
@@ -133,6 +141,11 @@ namespace Controls
                             AssociatedVertexID,
                             rightGrabControl.collidedVertexHandle.transform.localPosition + translationVector);
 
+                        EnableSBSLine(rightGrabControl.collidedVertexHandle.transform.localPosition, translationVector, leftGrabControl.collidedVertexHandle.transform.root.localToWorldMatrix );
+                    }
+                    else
+                    {
+                        DisableSBSLine();
                     }
 
                     ControlsManager.Instance.Extrudable.rebuild = true;
@@ -141,6 +154,7 @@ namespace Controls
             }
             else
             {
+                DisableSBSLine();
                 if (activeControllers.Count == 2 && refinementActive)
                 {
                     if (mode == InteractionMode.DUAL)
@@ -178,6 +192,44 @@ namespace Controls
                         lastRefinementMode = refinementMode;
                     }
                 }
+            }
+        }
+
+        private void DisableSBSLine()
+        {
+            if(lineObject != null)
+            {
+                Destroy(lineObject);
+            }
+        }
+
+        private void EnableSBSLine(Vector3 point, Vector3 translation, Matrix4x4 m)
+        {
+            if (lineObject == null)
+            {
+                lineObject = Instantiate(lineObjectBP);
+                lineObject.transform.parent = ControlsManager.Instance.transform;
+                lineObject.transform.localPosition = new Vector3(0,0,0);
+                lineObject.transform.localRotation = new Quaternion(0,0,0,0);
+                lineObject.transform.localScale = new Vector3(1, 1, 1);
+
+                LineRenderer lr = lineObject.GetComponent<LineRenderer>();
+                lr.enabled = true;
+
+                Vector3 p1 = point;
+
+                Vector3 p2 = (point + translation);
+
+                Vector3 direction = p1 - p2;
+                //lr.startWidth = lr.endWidth = 0.5f;
+                //lr.startColor = lr.endColor = Color.green;
+                //lr.positionCount = 2;
+                //Debug.Log(lr);
+                Vector3 yOffset = new Vector3(0, 0.0f, 0);
+                lr.SetPosition(0, p1 + yOffset + direction * 10);
+                lr.SetPosition(1, p2 + yOffset + direction * -10);
+                
+                
             }
         }
 
@@ -325,7 +377,8 @@ namespace Controls
 
             if (edgebar)
             Destroy(edgebar);
- 
+
+            DisableSBSLine();
         }
 
         private RefinementMode DetermineRefinement(Dictionary<string, float> angleDict)

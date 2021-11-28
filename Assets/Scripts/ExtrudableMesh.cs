@@ -15,22 +15,27 @@ public class ExtrudableMesh : MonoBehaviour
     public Manifold _manifold;
 
     public Mesh mesh;
+    private MeshFilter _meshFilter;
 
     public double initialSize = 0.1;
 
     public bool rebuild = false;
 
-
+    public MirrorMesh mirrorMesh; 
+        
+    private BoxCollider boxCollider;
+    
 
     // Use this for initialization
     void Awake()
     {
+        _meshFilter = GetComponent<MeshFilter>();
         if (mesh == null)
         {
-            mesh = GetComponent<MeshFilter>().sharedMesh;
+            mesh = _meshFilter.sharedMesh;
             if (mesh == null)
             {
-                mesh = GetComponent<MeshFilter>().mesh;
+                mesh = _meshFilter.mesh;
             }
 
             var newMesh = new Mesh();
@@ -47,10 +52,13 @@ public class ExtrudableMesh : MonoBehaviour
 
     public void Reset()
     {
-        _manifold = BuildInitialManifold();
-        TriangulateAndDrawManifold();
-        GetComponent<MeshFilter>().mesh = mesh;
+        boxCollider = GetComponent<BoxCollider>();
 
+        _manifold = BuildInitialManifold();
+        _meshFilter.mesh = mesh;
+        TriangulateAndDrawManifold();
+        
+        mirrorMesh.UpdateMirrorMesh(_manifold);
     }
 
     public Mesh GetMeshClone()
@@ -62,6 +70,8 @@ public class ExtrudableMesh : MonoBehaviour
         if (rebuild)
         {
             TriangulateAndDrawManifold();
+            
+            mirrorMesh.UpdateMirrorMesh(_manifold);
             rebuild = false;
         }
     }
@@ -135,6 +145,8 @@ public class ExtrudableMesh : MonoBehaviour
         _manifold = manifold;
         _manifold.StitchMesh(1e-10);
         TriangulateAndDrawManifold();
+        
+        mirrorMesh.UpdateMirrorMesh(_manifold);
 
         ControlsManager.Instance.Clear();
         ControlsManager.Instance.UpdateControls();
@@ -150,12 +162,14 @@ public class ExtrudableMesh : MonoBehaviour
     public void UpdateMesh()
     {
         _manifold.StitchMesh(1e-10);
+        
         TriangulateAndDrawManifold();
+        mirrorMesh.UpdateMirrorMesh(_manifold);
 
-        mesh = GetComponent<MeshFilter>().sharedMesh;
-        if (mesh == null)
+        mesh = _meshFilter.sharedMesh;
+        if (mesh)
         {
-            mesh = GetComponent<MeshFilter>().mesh;
+            mesh = _meshFilter.mesh;
         }
 
         var newMesh = new Mesh();
@@ -169,6 +183,7 @@ public class ExtrudableMesh : MonoBehaviour
 
         ControlsManager.Instance.Clear();
         ControlsManager.Instance.UpdateControls();
+
     }
 
     public void ChangeManifold(Manifold newManifold)
@@ -176,7 +191,10 @@ public class ExtrudableMesh : MonoBehaviour
 
         _manifold = newManifold;
         _manifold.StitchMesh(1e-10);
+        
         TriangulateAndDrawManifold();
+        mirrorMesh.UpdateMirrorMesh(_manifold);
+        
         //ControlsManager.Instance.Clear();
         //ControlsManager.Instance.UpdateControls();
     }
@@ -300,6 +318,7 @@ public class ExtrudableMesh : MonoBehaviour
             i += polyCount;
         }
 
+        
         mesh.name = "extruded";
         mesh.SetIndices(new int[0], MeshTopology.Triangles, 0);
         mesh.SetIndices(new int[0], MeshTopology.Lines, 1);
@@ -309,6 +328,19 @@ public class ExtrudableMesh : MonoBehaviour
         mesh.SetIndices(polygonsFinal.ToArray(), MeshTopology.Triangles, 0);
         mesh.SetIndices(edges.ToArray(), MeshTopology.Lines, 1);
         mesh.UploadMeshData(false);
+
+
+        mesh.RecalculateBounds();
+        UpdateCollider();
+      
+    }
+
+  
+    public void UpdateCollider()
+    {
+        
+        boxCollider.center = mesh.bounds.center;
+        boxCollider.size = mesh.bounds.size;
     }
 
     public bool isValidMesh()
@@ -527,5 +559,60 @@ public class ExtrudableMesh : MonoBehaviour
     public void bridgeFaces(int faceId1, int faceId2, int[] face1Vertices, int[] face2Vertices, int noVertPairs)
     {
         _manifold.BridgeFaces(faceId1, faceId2, face1Vertices, face2Vertices, noVertPairs);
+    }
+
+    public void MergeWithManifold(Manifold other) {
+        var newManifold = new Manifold();
+
+        AddManifoldFacesFromManifold(newManifold, _manifold);
+        AddManifoldFacesFromManifold(newManifold, other);
+        
+        // newManifold.StitchMesh(1e-10);
+        newManifold.StitchMesh(0.1);
+
+        _manifold = newManifold;
+        
+        TriangulateAndDrawManifold();
+    }
+
+    private void AddManifoldFacesFromManifold(Manifold newManifold, Manifold sourceManifold) {
+        var pointsAndQuads = sourceManifold.ToIdfs();
+
+        var points = pointsAndQuads.Key;
+        var quads = pointsAndQuads.Value;
+
+        var vertices = new Vector3[sourceManifold.NumberOfAllocatedVertices()];
+        
+        for (var i = 0; i < vertices.Length; i++)
+        {
+            vertices[i] = new Vector3((float)points[3 * i], (float)points[3 * i + 1], (float)points[3 * i + 2]);
+        }
+
+        for (var i = 0; i < quads.Length;)
+        {
+            int polyCount = quads[i];
+            i++;
+            
+            var face = new double[3 * polyCount];
+            for (int j = 0; j < polyCount; j++) {
+                var vert = vertices[quads[i + j]];
+                face[3 * j] = vert.x;
+                face[3 * j + 1] = vert.y;
+                face[3 * j + 2] = vert.z;
+            }
+            
+            // int vrtxIdx = polyCount - 1;
+            // for (int j = 0; j < polyCount; j++) {
+            //     var vert = vertices[quads[i + j]];
+            //     face[3 * vrtxIdx] = vert.x;
+            //     face[3 * vrtxIdx + 1] = vert.y;
+            //     face[3 * vrtxIdx + 2] = vert.z;
+            //     vrtxIdx--;
+            // }
+
+            newManifold.AddFace(polyCount, face);
+
+            i += polyCount;
+        }
     }
 }
