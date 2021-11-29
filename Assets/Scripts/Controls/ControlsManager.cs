@@ -15,6 +15,7 @@ namespace Controls
 
         public ExtrudableMesh Extrudable;
 
+        
         public static ControlsManager Instance;
 
         public float globalScale = 1.0f;
@@ -43,7 +44,7 @@ namespace Controls
 
         public bool hideControls = false;
 
-        public void Update()
+        public void Update() //check if hands are below turntable, if true hide controls
         {
             bool doHideControls = false;
             if (turntable)
@@ -59,7 +60,7 @@ namespace Controls
                 }
             }
             
-            if (hideControls != doHideControls)
+            if (hideControls != doHideControls && false) //Disabled for now
             {
                 hideControls = doHideControls;
                 undoManager.hideUndo = hideControls;
@@ -303,6 +304,7 @@ namespace Controls
                     vertexHandleController.Value.transform.localPosition = vertexPosition;
 
                     Vector3 vertexNormal = manifold.GetVertexNormal(vertexHandleController.Key);
+                    //Debug.Log("VertexHandleNormal: " + vertexNormal);
                     Quaternion handleRotation = Quaternion.LookRotation(-vertexNormal);
                     vertexHandleController.Value.transform.localRotation = handleRotation;
                 }
@@ -318,6 +320,20 @@ namespace Controls
                     continue;
 
                 InstantiateVertexHandle(manifold, id);
+            }
+
+            //update sizes
+            foreach(var faceHandleController in _faceHandles.Values)
+            {
+                faceHandleController.UpdateHandleSize();
+            }
+            foreach (var edgeHandleController in _edgeHandles.Values)
+            {
+                edgeHandleController.UpdateHandleSize();
+            }
+            foreach (var vertexHandleController in _vertexHandles.Values)
+            {
+                vertexHandleController.UpdateHandleSize();
             }
         }
 
@@ -382,6 +398,7 @@ namespace Controls
 
         public void InstantiateLatches(Manifold manifold, FaceHandleController handleController)
         {
+            
             var neighbourFaces = manifold.GetAdjacentFaceIdsAndEdgeCenters(handleController.AssociatedFaceID);
             var edgeCenters = neighbourFaces.edgeCenter;
 
@@ -490,6 +507,36 @@ namespace Controls
                     }
                 }
                 _edgeHandles.Remove(e);
+                Destroy(obj.gameObject);
+            }
+
+            // Brute force delete all edge controllers every cleanup, might not be effecient but circumvents bug that doesn't remove all invalid edgecontrollers.
+            int[] ekeys = _edgeHandles.Keys.ToArray();
+            foreach(int key in ekeys)
+            {
+                var obj = _edgeHandles[key];
+                if (!obj.Locked)
+                {
+                    
+                }
+                _edgeHandles.Remove(key);
+                Destroy(obj.gameObject);
+
+            }
+
+            int[] fkeys = _faceHandles.Keys.ToArray();
+            foreach (int key in fkeys)
+            {
+                var obj = _faceHandles[key];
+                _faceHandles.Remove(key);
+                Destroy(obj.gameObject);
+            }
+
+            int[] vkeys = _vertexHandles.Keys.ToArray();
+            foreach (int key in vkeys)
+            {
+                var obj = _vertexHandles[key];
+                _vertexHandles.Remove(key);
                 Destroy(obj.gameObject);
             }
         }
